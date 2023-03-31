@@ -1,0 +1,26 @@
+---
+title: "Research Proposal"
+author: 
+  - name: "Jonas Loopers Davidsen"
+format:
+  html:
+    toc: true
+    toc-location: left
+---
+
+```{r download data}
+#| echo: false
+#| message: false
+#| warning: false
+library(fredr)
+library(quantmod)
+
+fredr_set_key("2ffcd7e6c4f6e03de63ae1a03e4c3e6e")
+
+M2 <- fredr(series_id = "M2SL", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+FF <- fredr(series_id = "FEDFUNDS", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+CPI <- fredr(series_id = "USACPIALLMINMEI", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+HP <- fredr(series_id = "CSUSHPISA", observation_start = as.Date("1987-01-01"))
+SPX <- getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-01", to = "2022-12-31")
+IP <- fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+```
