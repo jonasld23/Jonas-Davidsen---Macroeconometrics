@@ -1,80 +1,146 @@
 ---
-title: "Title of your work"
-author: "Your Name"
-
-execute:
-  echo: false
-  
-bibliography: references.bib
+title: "Research Proposal"
+author: 
+  - name: "Jonas Loopers Davidsen"
+format:
+  html:
+    toc: true
+    toc-location: left
 ---
+> Disclaimer: This document is merely a research proposal and therefore still subject to changes along the process. ongoing research project conducted as a part of Macroeconometrics (ECOM9007) at The University of Melbourne, Australia.\
 
-> **Abstract.** This is a suggested formatting for your abstract. This **quarto** document is a template for your report. It includes some basic ways of working with such documents. You are invited to learn more about developing online reports with this technology. 
->
-> **Keywords.** bsvars, impulse responses, quarto, R, tax shocks
-
-# Introduction
-
-This is a template repository for the Research Report for **Macroeconometrics**. Learn more about about developing online reports with **quarto** at [quarto.org](https://quarto.org/).
-
-## A Simple Example
-
-This is a Quarto document in which we can cite the **bsvars** package by @wozniakBsvarsBayesianEstimation2022. Look for more info at [package CRAN website](https://cran.r-project.org/package=bsvars).
-
-Simply load the package by running
-```{r package load}
-library(bsvars)
-```
-
-The code below performs simple computations for sampling posterior draws of the impulse responses. The first line uploads the data from the package,another sets the seed for reproducible computations, and then the pipe `|>` is used to streamline the model specification, estimation including the first burn-in run to obtain convergence and finally, the computed impulse responses are saved in object `irf`.
-```{r estimate irf}
+```{r download data}
+#| echo: false
 #| message: false
-#| echo: true
+#| warning: false
+library(fredr)
+library(quantmod)
 
-data(us_fiscal_lsuw)
-set.seed(123)
-us_fiscal_lsuw |>
-  specify_bsvar$new(p = 1) |>
-  estimate(S = 1000, show_progress = FALSE) |> 
-  estimate(S = 2000, show_progress = FALSE) |> 
-  compute_impulse_responses(horizon = 20) -> irf
+fredr_set_key("2ffcd7e6c4f6e03de63ae1a03e4c3e6e")
+
+M2 <- fredr(series_id = "M2SL", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+FF <- fredr(series_id = "FEDFUNDS", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+CPI <- fredr(series_id = "USACPIALLMINMEI", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+HP <- fredr(series_id = "CSUSHPISA", observation_start = as.Date("1987-01-01"))
+SPX <- getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-01", to = "2022-12-31")
+IP <- fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
 ```
 
-The code above is visible as the **R** chunk contains the setting `#| echo: true`.
+## The question objective and motivation
 
-@tbl-irf reports the posterior means of the gross domestic product response to an unanticipated tax increase by 1 pp.
-```{r}
-#| label: tbl-irf
-#| tbl-cap: Impulse response of gdp to unanticipated tax increase by 1 pp. within two years
+### The objective
 
-irf_gdp_tax = matrix(apply(irf[3,1,1:9,],1, mean), nrow = 1)
-rownames(irf_gdp_tax) = "change in gdp [%]"
-colnames(irf_gdp_tax) = 0:8
-knitr::kable(irf_gdp_tax, digits = 3)
+The objective of this research project is to investigate the effects of a money supply shock on asset prices and inflation in the US economy.
+
+### The research question
+
+How does money supply affect asset prices and inflation and what are the implications for monetary policy and financial stability?
+
+### Motivation
+
+Understanding the effects of money supply shocks on asset prices and inflation is crucial for policymakers and investors. Despite extensive Quantitative Easing (QE) programs following the financial crisis in 2008 inflation remained well under the target level in many advanced economies. Rather, the increase in the money supply primarily seemed to inflate asset prices instead of prices in general and consequently also failed to stimulate aggregate demand. However, following the Covid-19 pandemic central banks quite drastically expanded their QE programs and thereby increased the money supply to unprecedented levels in response to the economic downturn, which contributed to high inflation in many countries. This raises questions about the effectiveness of monetary policy in stimulating the economy and controlling inflation. It is therefore of interest to investigate the mechanisms through which a money supply shock affects different economic variables such as asset prices and inflation in light of economic and financial stability.
+
+## Data and their properties
+
+So far the intention is to include the following six variables for the US economy in the SVAR model.
+
+* $M_t$: M2 aggregate from FRED Database
+
+* $SPX_t$: SP500 index from Yahoo Finance
+* $HP_t$: S&P/Case-Shiller U.S. National Home Price Index from FRED Database
+* $CPI_t$: Consumer Price Index: All Items for the US from FRED Database
+  + Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of monetary policy to the real economy. Further, the CPI is chosen as it is commonly used for a measure of headline inflation.
+* $ff_t$: Effective Fed Funds Rate from FRED Database
+* $IP_t$:  Industrial Production: Total Index
+  + Motivation: The effective fed funds rate is the rate at which banks lend and borrow funds from each other overnight and is obviously heavily influenced by the actual fed funds rate. Industrial production is a measure for monthly US real activity and is chosen since actual GDP data is only available for quarterly data. These two variables are important to include as they also play a crucial role in the relationship between money supply, asset prices and inflation. 
+
+My sample period will be from M1 1987 - M12 2022 as data for $HP_t$ only goes back to this period and the frequency of the data is monthly.
+
+
+
+### Transformation and visualisation of the variables
+
+Since the effective fed funds rate, $ff_t$, is in percentages this variable is not being transformed. For the money supply, $M_t$, the log is taken:
+
+$m_t=\log(M_t)$
+
+The same goes for $SPX_t$, whereafter MoM returns are computed by taking first differences:
+
+$spx_t=\log(SPX_t-SPX_{t-1})$
+
+For $HP_t$ I compute YoY returns by taking the differences with respect to the 12th lag:
+
+$hp_t=\log(HP_t-HP_{t-12})$
+
+To compute YoY inflation the same is being done for $CPI_t$:
+
+$inf_t=\log(CPI_t-CPI_{t-12})$
+
+And last but not least the YoY growth of $IP_t$ is being computed:
+
+$ip_t=\log(IP_t-IP_{t-12})$
+
+We get the following plots for the variables:
+
+```{r plotting data}
+library(xts)
+
+## Log-transform data for M2, CPI & HP and transform SPX to monthly data
+
+M2 <- xts::xts(log(M2$value), M2$date)
+CPI <- xts::xts(log(CPI$value), CPI$date)
+HP <- xts::xts(log(HP$value), HP$date)
+FF <- xts::xts(FF$value, FF$date)
+IP <- xts::xts(IP$value, IP$date)
+
+SPX <- xts::xts(log(SPX[,6]), order.by=as.Date(index(SPX)))
+SPX <- xts::apply.monthly(SPX, mean)
+
+#Take first differences for HP, SPX and IP 
+
+HP <- diff(HP, lag = 12, na.pad = TRUE) # YoY return
+SPX <- diff(SPX) #MoM return
+INF <- 100*diff(CPI, lag = 12, na.pad = TRUE)
+
+#Remove first 12 observations from all variables to ensure same dimensions
+
+INF <- INF[-c(1:12)]
+M2 <- M2[-c(1:12)]
+FF <- FF[-c(1:12)]
+SPX <- SPX[-c(1:12)]
+HP <- HP[-c(1:12)]
+IP <- IP[-c(1:12)]
+
+index(SPX) <- as.Date(format(index(SPX), "%Y-%m-01")) #Make the dates in all series align
+
+#Plotting the time series
+
+par(mfrow=c(3,2), mar=c(4,4.5,2,2),cex.axis=1.5, cex.lab=1.5)
+plot.ts(M2, main = "", ylab = expression(m[t]), xlab = "time", col = "magenta", lwd = 2)
+plot.ts(SPX,main = "", ylab=expression(spx[t]), xlab = "time", col="magenta",lwd=2)
+plot.ts(HP,main = "", ylab=expression(hp[t]), xlab = "time", col="magenta",lwd=2)
+plot.ts(INF,main = "", ylab=expression(inf[t]), xlab = "time", col="magenta",lwd=2)
+plot.ts(FF,main = "", ylab=expression(ff[t]), xlab = "time", col="magenta",lwd=2)
+plot.ts(IP,main = "", ylab=expression(ip[t]), xlab = "time", col="magenta",lwd=2)
 ```
+## The model and hypothesis
+ 
+$[m_t$   $spx_t$   $hp_t$   $inf_t$   $ff_t$   $ip_t]'$
 
-@fig-irf presents the same reaction over the horizon of five years.
-```{r}
-#| label: fig-irf
-#| fig-cap: Impulse response of gdp to unanticipated tax increase by 1 pp. within five years
 
-irf_median    = apply(irf[3,1,,],1, median)
-irf_hdi       = apply(irf[3,1,,],1, HDInterval::hdi, credMass = .68)
-plot(x = 0:20, y = irf_median, type = "l", bty = "n", 
-     xlab = "horizon", ylab = "change in gdp [%]",
-     ylim = range(irf_hdi))
-polygon(x = c(0:20, 20:0), y = c(irf_hdi[1,], irf_hdi[2,21:1]), col = "deepskyblue1", border = "deepskyblue1")
-lines(x = 0:20, y = irf_median, lwd = 2, col = "deepskyblue3")
-```
+\begin{align}
+B_0y_t &= b_0 + B_1y_{t-1}+\dots+B_py_{t-p}+u_t\\
+u_t|Y_{t-1} &\sim \; iid(\textbf{0}_N,I_N)
+\end{align}
 
-## Some Hints
 
-Have a look at how to work with **RStudio** and **GitHub** at: [How to use git and GitHub with R](https://rfortherestofus.com/2021/02/how-to-use-git-github-with-r/). 
 
-These are many different ways of how to work with references in **RStudio**: [Preview Citations](https://posit.co/blog/rstudio-1-4-preview-citations/).
 
-To make all the **R** code visible on the website change the settings in the preabmble of this document to:
-```
-execute:
-  echo: true
-```
-## References {.unnumbered}
+
+
+
+
+
+
+
+
