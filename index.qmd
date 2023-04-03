@@ -1,5 +1,5 @@
 ---
-title: "Research Proposal"
+title: "The Effect of Money Supply Shocks on Asset Prices and Inflation in the US: A Bayesian SVAR Approach"
 author: 
   - name: "Jonas Loopers Davidsen"
 format:
@@ -7,7 +7,7 @@ format:
     toc: true
     toc-location: left
 ---
-> Disclaimer: This document is merely a research proposal and therefore still subject to changes along the process. ongoing research project conducted as a part of Macroeconometrics (ECOM9007) at The University of Melbourne, Australia.\
+> Disclaimer: This document is merely a research proposal and therefore still subject to changes along the process.\
 
 ```{r download data}
 #| echo: false
@@ -26,19 +26,19 @@ SPX <- getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-0
 IP <- fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
 ```
 
-## The question objective and motivation
+## The question, objective and motivation
 
-### The objective
+**The objective**
 
 The objective of this research project is to investigate the effects of a money supply shock on asset prices and inflation in the US economy.
 
-### The research question
+**The research question**
 
 How does money supply affect asset prices and inflation and what are the implications for monetary policy and financial stability?
 
-### Motivation
+**Motivation**
 
-Understanding the effects of money supply shocks on asset prices and inflation is crucial for policymakers and investors. Despite extensive Quantitative Easing (QE) programs following the financial crisis in 2008 inflation remained well under the target level in many advanced economies. Rather, the increase in the money supply primarily seemed to inflate asset prices instead of prices in general and consequently also failed to stimulate aggregate demand. However, following the Covid-19 pandemic central banks quite drastically expanded their QE programs and thereby increased the money supply to unprecedented levels in response to the economic downturn, which contributed to high inflation in many countries. This raises questions about the effectiveness of monetary policy in stimulating the economy and controlling inflation. It is therefore of interest to investigate the mechanisms through which a money supply shock affects different economic variables such as asset prices and inflation in light of economic and financial stability.
+Despite extensive Quantitative Easing (QE) programs following the financial crisis in 2008, inflation continued to remain well under the target level in many advanced economies. Rather, the increase in the money supply primarily seemed to inflate asset prices instead of the general price level and in other words struggled to stimulate aggregate demand. However, following the Covid-19 pandemic central banks quite drastically expanded their QE programs and thereby raised the money supply to unprecedented levels in response to the economic downturn. Among other factors such as supply chain issues, surging energy prices and massive fiscal stimulus, this has been one of the drivers behind inflation reaching double digits in many countries. This raises questions about the effectiveness of monetary policy in stimulating the economy and simultaneously controlling inflation. Another concern regarding QE inflating asset prices is that it can lead to financial stability in terms of increased risk of assets becoming overvalued and detached from the underlying fundamentals. This can lead to asset price bubbles and increase the amount of speculation among investors. It is therefore crucial for both policy makers and investors to understand the mechanisms through which a money supply shock affects different economic variables such as asset prices and inflation in light of economic and financial stability. 
 
 ## Data and their properties
 
@@ -49,16 +49,14 @@ So far the intention is to include the following six variables for the US econom
 * $SPX_t$: SP500 index from Yahoo Finance
 * $HP_t$: S&P/Case-Shiller U.S. National Home Price Index from FRED Database
 * $CPI_t$: Consumer Price Index: All Items for the US from FRED Database
-  + Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of monetary policy to the real economy. Further, the CPI is chosen as it is commonly used for a measure of headline inflation.
+  + Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of money supply shocks to asset prices and the real economy. Further, the CPI is chosen as it is commonly used to construct a measure of headline inflation.
 * $ff_t$: Effective Fed Funds Rate from FRED Database
 * $IP_t$:  Industrial Production: Total Index
   + Motivation: The effective fed funds rate is the rate at which banks lend and borrow funds from each other overnight and is obviously heavily influenced by the actual fed funds rate. Industrial production is a measure for monthly US real activity and is chosen since actual GDP data is only available for quarterly data. These two variables are important to include as they also play a crucial role in the relationship between money supply, asset prices and inflation. 
 
-My sample period will be from M1 1987 - M12 2022 as data for $HP_t$ only goes back to this period and the frequency of the data is monthly.
+My sample period will be from M1 1987 - M12 2022 as data for $HP_t$ only goes back to this period. As I am including stock prices in my model I choose the frequency of the data to be monthly and not quarterly. Hence, the choice of industrial production as a proxy for GDP.
 
-
-
-### Transformation and visualisation of the variables
+**Transformation and visualisation of the variables**
 
 Since the effective fed funds rate, $ff_t$, is in percentages this variable is not being transformed. For the money supply, $M_t$, the log is taken:
 
@@ -68,7 +66,7 @@ The same goes for $SPX_t$, whereafter MoM returns are computed by taking first d
 
 $spx_t=\log(SPX_t-SPX_{t-1})$
 
-For $HP_t$ I compute YoY returns by taking the differences with respect to the 12th lag:
+For $HP_t$ I compute YoY returns by taking the differences with respect to the 12th lag. The reason for computing YoY returns for house prices is the lack of liquidity compared to stock markets.
 
 $hp_t=\log(HP_t-HP_{t-12})$
 
@@ -80,10 +78,18 @@ And last but not least the YoY growth of $IP_t$ is being computed:
 
 $ip_t=\log(IP_t-IP_{t-12})$
 
-We get the following plots for the variables:
+This results in the following plots for the variables:
 
-```{r plotting data}
+```{r transforming data and make plots ready}
+#| echo: false
+#| message: false
+#| warning: false
+#| results: hide
+
 library(xts)
+library(ggplot2)
+library(gridExtra)
+
 
 ## Log-transform data for M2, CPI & HP and transform SPX to monthly data
 
@@ -115,14 +121,44 @@ index(SPX) <- as.Date(format(index(SPX), "%Y-%m-01")) #Make the dates in all ser
 
 #Plotting the time series
 
-par(mfrow=c(3,2), mar=c(4,4.5,2,2),cex.axis=1.5, cex.lab=1.5)
-plot.ts(M2, main = "", ylab = expression(m[t]), xlab = "time", col = "magenta", lwd = 2)
-plot.ts(SPX,main = "", ylab=expression(spx[t]), xlab = "time", col="magenta",lwd=2)
-plot.ts(HP,main = "", ylab=expression(hp[t]), xlab = "time", col="magenta",lwd=2)
-plot.ts(INF,main = "", ylab=expression(inf[t]), xlab = "time", col="magenta",lwd=2)
-plot.ts(FF,main = "", ylab=expression(ff[t]), xlab = "time", col="magenta",lwd=2)
-plot.ts(IP,main = "", ylab=expression(ip[t]), xlab = "time", col="magenta",lwd=2)
+m2 = ggplot(data = M2[,1], aes(x = index(M2[,1]), y = M2[,1])) +
+  geom_line(color = "black") +
+  labs(title = "Money Supply - M2", x = "Year", y = expression(m[t])) +
+  theme_minimal()
+
+spx = ggplot(data = SPX[,1], aes(x = index(SPX), y = SPX[,1])) +
+  geom_line(color = "black") +
+  labs(title = "SP500 Returns", x = "Year", y = expression(spx[t])) +
+  theme_minimal()
+
+hp = ggplot(data = HP[,1], aes(x = index(HP[,1]), y = HP[,1])) +
+  geom_line(color = "black") +
+  labs(title = "National House Price Index", x = "Year", y = expression(hp[t])) +
+  theme_minimal()
+
+inf = ggplot(data = INF[,1], aes(x = index(INF[,1]), y = INF[,1])) +
+  geom_line(color = "black") +
+  labs(title = "Inflation", x = "Year", y = expression(inf[t])) +
+  theme_minimal()
+
+ff = ggplot(data = FF[,1], aes(x = index(FF[,1]), y = FF[,1])) +
+  geom_line(color = "black") +
+  labs(title = "Effective Fed Funds Rate", x = "Year", y = expression(ff[t])) +
+  theme_minimal()
+
+ip = ggplot(data = IP[,1], aes(x = index(IP[,1]), y = IP[,1])) +
+  geom_line(color = "black") +
+  labs(title = "Industrial Production", x = "Year", y = expression(ip[t])) +
+  theme_minimal()
 ```
+
+```{r plotting all time series}
+#| echo: false
+#| message: false
+#| warning: false
+grid.arrange(m2, spx, hp, inf, ff, ip, nrow = 3, ncol = 2)
+```
+
 ## The model and hypothesis
  
 $[m_t$   $spx_t$   $hp_t$   $inf_t$   $ff_t$   $ip_t]'$
