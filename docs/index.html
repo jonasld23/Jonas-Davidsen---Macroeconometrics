@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Jonas Loopers Davidsen">
+
+<title>Macroeconometrics Research Report - The Effect of Money Supply Shocks on Asset Prices and Inflation in the US Economy: A Bayesian SVAR Approach</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Macroeconometrics Research Report</span>
+    </a>
+  </div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-question-objective-and-motivation" id="toc-the-question-objective-and-motivation" class="nav-link active" data-scroll-target="#the-question-objective-and-motivation">The question, objective and motivation</a></li>
+  <li><a href="#data-and-their-properties" id="toc-data-and-their-properties" class="nav-link" data-scroll-target="#data-and-their-properties">Data and their properties</a></li>
+  <li><a href="#the-model-and-hypothesis" id="toc-the-model-and-hypothesis" class="nav-link" data-scroll-target="#the-model-and-hypothesis">The model and hypothesis</a></li>
+  </ul>
+</nav>
+</nav>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">The Effect of Money Supply Shocks on Asset Prices and Inflation in the US Economy: A Bayesian SVAR Approach</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Jonas Loopers Davidsen </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<blockquote class="blockquote">
+<p>Disclaimer: This document is merely a research proposal and therefore still subject to changes along the process.<br>
+</p>
+</blockquote>
+<div class="cell">
+
+</div>
+<section id="the-question-objective-and-motivation" class="level2">
+<h2 class="anchored" data-anchor-id="the-question-objective-and-motivation">The question, objective and motivation</h2>
+<p><strong>The objective</strong></p>
+<p>The objective of this research project is to investigate the effects of a money supply shock on asset prices and inflation in the US economy.</p>
+<p><strong>The research question</strong></p>
+<p>How does money supply affect asset prices and inflation and what are the implications for monetary policy and financial stability?</p>
+<p><strong>Motivation</strong></p>
+<p>Despite extensive Quantitative Easing (QE) programs following the financial crisis in 2008, inflation continued to remain well under the target level in many advanced economies. Rather, the increase in the money supply primarily seemed to inflate asset prices instead of the general price level and in other words struggled to stimulate aggregate demand. However, following the Covid-19 pandemic central banks quite drastically expanded their QE programs and thereby raised the money supply to unprecedented levels in response to the economic downturn. Among other factors such as supply chain issues, surging energy prices and massive fiscal stimulus, this has been one of the drivers behind inflation reaching double digits recently in many countries. This raises questions about the effectiveness of monetary policy in stimulating the economy and simultaneously controlling inflation. Another concern regarding QE mainly inflating asset prices, is that it can lead to financial instability in terms of increased risk of assets becoming overvalued and detached from the underlying fundamentals. This can lead to asset price bubbles and increase the amount of speculation among investors. It is therefore crucial for both policy makers and investors to understand the mechanisms through which a money supply shock affects different economic variables such as asset prices and inflation in light of economic and financial stability.</p>
+</section>
+<section id="data-and-their-properties" class="level2">
+<h2 class="anchored" data-anchor-id="data-and-their-properties">Data and their properties</h2>
+<p>So far the intention is to include the following six variables for the US economy in the SVAR model.</p>
+<ul>
+<li><p><span class="math inline">\(M_t\)</span>: M2 aggregate from FRED Database</p></li>
+<li><p><span class="math inline">\(SPX_t\)</span>: SP500 index from Yahoo Finance</p></li>
+<li><p><span class="math inline">\(HP_t\)</span>: S&amp;P/Case-Shiller U.S. National Home Price Index from FRED Database</p></li>
+<li><p><span class="math inline">\(CPI_t\)</span>: Consumer Price Index: All Items for the US from FRED Database</p>
+<ul>
+<li>Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of money supply shocks to asset prices and the real economy. Further, the CPI is chosen as it is commonly used to construct the so-called headline inflation.</li>
+</ul></li>
+<li><p><span class="math inline">\(ff_t\)</span>: Effective Fed Funds Rate from FRED Database</p></li>
+<li><p><span class="math inline">\(IP_t\)</span>: Industrial Production: Total Index</p>
+<ul>
+<li>Motivation: The effective fed funds rate is the rate at which banks lend and borrow funds from each other overnight and is obviously heavily influenced by the actual fed funds rate. Industrial production is a measure for monthly US real activity and is chosen since actual GDP data is only available for each quarter. These two variables are important to include as they play a crucial role in the relationship between money supply, asset prices and inflation and therefore serve as control variables.</li>
+</ul></li>
+</ul>
+<p>Data from FRED Database is downloaded using the <strong>fredr</strong> package, while data from Yahoo Finance is downloaded using the <strong>quantmod</strong> package. My sample period will be from M1 1987 - M12 2022 as data for <span class="math inline">\(HP_t\)</span> only goes back to this period. As I am including stock prices in my model I choose the frequency of the data to be monthly and not quarterly as stocks are highly volatile and liquid. Hence, the choice of industrial production as a proxy for GDP.</p>
+<p><strong>Transformation and visualisation of the variables</strong></p>
+<p>Since the effective fed funds rate, <span class="math inline">\(ff_t\)</span>, is in percentages it is not being transformed. For the money supply, <span class="math inline">\(M_t\)</span>, the log is taken:</p>
+<p><span class="math inline">\(m_t=\log(M_t)\)</span></p>
+<p>The same goes for <span class="math inline">\(SPX_t\)</span>, whereafter MoM returns are computed by taking first differences:</p>
+<p><span class="math inline">\(spx_t=\log(SPX_t-SPX_{t-1})\)</span></p>
+<p>For <span class="math inline">\(HP_t\)</span> I compute YoY returns by taking the differences with respect to the 12th lag. The reason for computing YoY returns for house prices is the lack of liquidity compared to stock markets.</p>
+<p><span class="math inline">\(hp_t=\log(HP_t-HP_{t-12})\)</span></p>
+<p>To compute YoY inflation the same is being done for <span class="math inline">\(CPI_t\)</span>:</p>
+<p><span class="math inline">\(inf_t=\log(CPI_t-CPI_{t-12})\)</span></p>
+<p>And last but not least the YoY growth of <span class="math inline">\(IP_t\)</span> is being computed:</p>
+<p><span class="math inline">\(ip_t=\log(IP_t-IP_{t-12})\)</span></p>
+<p>This results in the following plots for the variables:</p>
+<div class="cell">
+
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/plotting all time series-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>From a graphical inspection one can clearly see that <span class="math inline">\(m_t\)</span> and <span class="math inline">\(ip_t\)</span> are not stationary processes and might contain one or more unit roots. However, for <span class="math inline">\(spx_t\)</span>, <span class="math inline">\(hp_t\)</span>, <span class="math inline">\(inf_t\)</span> and <span class="math inline">\(ff_t\)</span> it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes.</p>
+<div class="cell">
+
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>                         Test statistic P-value Lags
+Money Supply                     -2.593   0.327   12
+SP500 Index                      -5.398   0.010   12
+House Prince Index               -2.582   0.331   12
+Inflation                        -0.884   0.954   12
+Effective Fed Funds Rate         -3.161   0.095   12
+Industrial Production            -1.904   0.618   12</code></pre>
+</div>
+</div>
+<p>Setting <span class="math inline">\(p=12\)</span> it turns out that <span class="math inline">\(spx_t\)</span> seems to be the only stationary variable as we cannot reject the null hypothesis of the other variables being a I(1) process. However, the test statistic for <span class="math inline">\(hp_t\)</span>, <span class="math inline">\(inf_t\)</span> and <span class="math inline">\(ff_t\)</span> seem to be very sensitive to the choice of lags as we do reject the null hypothesis for other <span class="math inline">\(p\)</span>. For now I will assume that <span class="math inline">\(spx_t\)</span> is the only stationary variable.</p>
+</section>
+<section id="the-model-and-hypothesis" class="level2">
+<h2 class="anchored" data-anchor-id="the-model-and-hypothesis">The model and hypothesis</h2>
+<p>In order to investigate the effect of money supply on asset prices and inflation a structural VAR model will be used in this research project. The structural VAR model with <span class="math inline">\(p\)</span> lags can written as</p>
+<p><span class="math display">\[\begin{align}
+B_0y_t &amp;= b_0 + B_1y_{t-1}+\dots+B_py_{t-p}+w_t
+\end{align}\]</span></p>
+<p>where <span class="math inline">\(y_t=[m_t\)</span> <span class="math inline">\(spx_t\)</span> <span class="math inline">\(hp_t\)</span> <span class="math inline">\(inf_t\)</span> <span class="math inline">\(ff_t\)</span> <span class="math inline">\(ip_t]'\)</span> and contains the six variables presented above. The error term <span class="math inline">\(u_t\)</span> conditioned on the past is assumed to be <span class="math inline">\(w_t|Y_{t-1}\sim\;iid(\textbf{0}_N,I_N)\)</span>. The <span class="math inline">\(B_0\)</span> is the so-called structural matrix and contains all contemporaneous relationships between the variables, which I essentially am interested in. However, this matrix can’t just be estimated without certain assumptions. Therefore, the first step is to premultiply <span class="math inline">\(B_0^{-1}\)</span> on both sides so that we obtain the reduced form of the SVAR model:</p>
+<p><span class="math display">\[\begin{align}
+y_t &amp;= \mu_0 + A_1y_{t-1}+\dots+A_py_{t-p}+u_t
+\end{align}\]</span></p>
+<p>Where <span class="math inline">\(A_i=B_0^{-1}B_i\)</span> and <span class="math inline">\(u_t=B_0^{-1}w_t\)</span>. It is assumed that <span class="math inline">\(u_t|Y_{t-1}\sim\;iid(\textbf{0}_N,\Sigma)\)</span>, which allows us to denote <span class="math inline">\(\Sigma = B_0^{-1} (B_0^{-1})'\)</span>. In order to reconstruct <span class="math inline">\(B_0^{-1}\)</span> and thereby identify the SVAR model restrictions on the matrix need to imposed. As <span class="math inline">\(B_0^{-1}\)</span> consists of <span class="math inline">\(K(K+1)/2\)</span> variables, at least <span class="math inline">\(K(K+1)/2\)</span> restrictions need to be imposed. This can be done in numerous ways. In this project I will impose zero exclusion restrictions on <span class="math inline">\(B_0^{-1}\)</span> by either implying recursive or a non-recursive system between the variables. It is important to note that if I choose a recursive system the ordering of <span class="math inline">\(y_t\)</span> is crucial and is therefore still subject to change.</p>
+<p>The estimation output I will interpret to measure how money supply shocks affect asset prices and inflation will be impulse response functions (IRFs) and forecast error variance decomposition (FEVDs). IRFs measures the dynamic response of a variable to a given shock, while FEVDs are a measure for the contribution of different shocks to the forecast error variance of a certain variable.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
