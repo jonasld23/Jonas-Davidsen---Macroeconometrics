@@ -198,28 +198,28 @@ colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 #| message: false
 #| warning: false
 # Print the data frame
-rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Prince Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
+rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
 colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 print(adf_table)
 ```
 
-Setting $p=12$ it turns out that $spx_t$ seems to be the only stationary variable as we cannot reject the null hypothesis of the other variables being a I(1) process. However, the test statistic for $hp_t$, $inf_t$ and $ff_t$ seem to be very sensitive to the choice of lags as we do reject the null hypothesis for other $p$. For now I will assume that $spx_t$ is the only stationary variable.
+By looking at the p-values it seems like $spx_t$ is the only stationary variable as we cannot reject the null hypothesis of the other variables being a I(1) process. However, the test statistic for $hp_t$, $inf_t$ and $ff_t$ seem to be very sensitive to the choice of lags as we do reject the null hypothesis for other $p$. For now I will assume that $spx_t$ is the only stationary variable.
 
 ## The model and hypothesis
 
-In order to investigate the effect of money supply on asset prices and inflation a structural VAR model will be used in this research project. The structural VAR model with $p$ lags can written as
+For investigating the effect of money supply on asset prices and inflation a structural VAR model will be used in this research project. The structural VAR model with $p$ lags can written as
 
 \begin{align}
 B_0y_t &= b_0 + B_1y_{t-1}+\dots+B_py_{t-p}+w_t
 \end{align}
 
-where $y_t=[m_t$   $spx_t$   $hp_t$   $inf_t$   $ff_t$   $ip_t]'$ and contains the six variables presented above. The error term $u_t$ conditioned on the past is assumed to be $w_t|Y_{t-1}\sim\;iid(\textbf{0}_N,I_N)$. The $B_0$ is the so-called structural matrix and contains all contemporaneous relationships between the variables, which I essentially am interested in. However, this matrix can't just be estimated without certain assumptions. Therefore, the first step is to premultiply $B_0^{-1}$ on both sides so that we obtain the reduced form of the SVAR model:
+where $y_t=[m_t$   $spx_t$   $hp_t$   $inf_t$   $ff_t$   $ip_t]'$ and contains the six variables presented above. The error term $u_t$ conditioned on the past is assumed to be $w_t|Y_{t-1}\sim\;iid(\textbf{0}_N,I_N)$, where $N=6$ in my case. The $B_0$ is the so-called structural matrix and contains all contemporaneous relationships between the variables, which I essentially am interested in. However, this matrix can't just be estimated without certain assumptions. Therefore, the first step is to premultiply $B_0^{-1}$ on both sides so that we obtain the reduced form of the SVAR model:
 
 \begin{align}
 y_t &= \mu_0 + A_1y_{t-1}+\dots+A_py_{t-p}+u_t
 \end{align}
 
-Where $A_i=B_0^{-1}B_i$ and $u_t=B_0^{-1}w_t$. It is assumed that $u_t|Y_{t-1}\sim\;iid(\textbf{0}_N,\Sigma)$, which allows us to denote $\Sigma = B_0^{-1} (B_0^{-1})'$. In order to reconstruct $B_0^{-1}$ and thereby identify the SVAR model restrictions on the matrix need to imposed. As $B_0^{-1}$ consists of $K(K+1)/2$ variables, at least $K(K+1)/2$ restrictions need to be imposed. This can be done in numerous ways. In this project I will impose zero exclusion restrictions on $B_0^{-1}$ by either implying recursive or a non-recursive system between the variables. It is important to note that if I choose a recursive system the ordering of $y_t$ is crucial and is therefore still subject to change.
+Where $A_i=B_0^{-1}B_i$ and $u_t=B_0^{-1}w_t$. It is assumed that $u_t|Y_{t-1}\sim\;iid(\textbf{0}_N,\Sigma)$, which allows us to denote $\Sigma = B_0^{-1} (B_0^{-1})'$. In order to reconstruct $B_0^{-1}$ and thereby identify the SVAR model restrictions on the matrix need to imposed. As $B_0^{-1}$ consists of $K(K+1)/2$ variables, at least $K(K-1)/2$ restrictions need to be imposed. This can be done in multiple ways. In this project I will impose zero exclusion restrictions on $B_0^{-1}$ by either implying recursive or a non-recursive system between the variables. It is important to note that if I choose a recursive system the ordering of $y_t$ is crucial and is therefore still subject to change.
 
 The estimation output I will interpret to measure how money supply shocks affect asset prices and inflation will be impulse response functions (IRFs) and forecast error variance decomposition (FEVDs). IRFs measures the dynamic response of a variable to a given shock, while FEVDs are a measure for the contribution of different shocks to the forecast error variance of a certain variable. 
 
