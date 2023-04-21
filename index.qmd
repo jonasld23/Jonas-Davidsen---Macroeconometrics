@@ -14,16 +14,29 @@ format:
 #| echo: false
 #| message: false
 #| warning: false
+
+#open packages
 library(fredr)
 library(quantmod)
+library(xts)
+library(ggplot2)
+library(gridExtra)
+library(datetimeutils)
 
+#input FRED key
 fredr_set_key("2ffcd7e6c4f6e03de63ae1a03e4c3e6e")
 
+#Load all data from 1987-01-01 to 2022-12-31
 M2 <- fredr(series_id = "M2SL", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 FF <- fredr(series_id = "FEDFUNDS", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 CPI <- fredr(series_id = "USACPIALLMINMEI", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 HP <- fredr(series_id = "CSUSHPISA", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 SPX <- getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-01", to = "2022-12-31")
+
 IP <- fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
 ```
 
@@ -47,7 +60,7 @@ So far the intention is to include the following six variables for the US econom
 
 * $M_t$: M2 aggregate from FRED Database
 
-* $SPX_t$: SP500 index from Yahoo Finance
+* $SPX_t$: Log returns on SP500 from Yahoo Finance
 * $HP_t$: S&P/Case-Shiller U.S. National Home Price Index from FRED Database
 * $CPI_t$: Consumer Price Index: All Items for the US from FRED Database
   + Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of money supply shocks to asset prices and the real economy. Further, the CPI is chosen as it is commonly used to construct the so-called headline inflation.
@@ -87,10 +100,6 @@ This results in the following plots for the variables:
 #| warning: false
 #| results: hide
 
-library(xts)
-library(ggplot2)
-library(gridExtra)
-
 
 ## Log-transform data for M2, CPI & HP and transform SPX to monthly data
 
@@ -100,8 +109,16 @@ HP <- xts::xts(log(HP$value), HP$date)
 FF <- xts::xts(FF$value, FF$date)
 IP <- xts::xts(IP$value, IP$date)
 
-SPX <- xts::xts(log(SPX[,6]), order.by=as.Date(index(SPX)))
-SPX <- xts::apply.monthly(SPX, mean)
+#SPX needs some additional modification
+#Adjust SPX to use start of month data
+
+#Find first date in each month
+dates <- nth_day(index(SPX), period = "month", n = "first")
+#Pull only values on those dates
+SPX <- SPX[index(SPX) %in% dates]
+#transfrom to log
+SPX <- xts::xts(log(SPX[,6]))
+
 
 #Take first differences for HP, SPX and IP 
 
@@ -188,7 +205,7 @@ for (i in 1:length(adf_)) {
   adf_table[i, "Lags_Used"] = round(adf_[[i]]$parameter,3)
 }
 # Print the data frame
-rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
+rownames(adf_table)<- c("Money Supply", "SP500 Returns", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
 colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 #print(adf_table)
 
@@ -198,7 +215,7 @@ colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 #| message: false
 #| warning: false
 # Print the data frame
-rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
+rownames(adf_table)<- c("Money Supply", "SP500 Returns", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
 colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 print(adf_table)
 ```
