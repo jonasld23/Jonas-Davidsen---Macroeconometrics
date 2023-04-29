@@ -158,16 +158,8 @@ ul.task-list li input[type="checkbox"] {
 </ul>
 <p>Data from FRED Database is downloaded using the <strong>fredr</strong> package, while data from Yahoo Finance is downloaded using the <strong>quantmod</strong> package. My sample period will be from M1 1987 - M12 2022 as data for <span class="math inline">\(HP_t\)</span> only goes back to this period. As I am including stock prices in my model I choose the frequency of the data to be monthly and not quarterly as stocks are highly volatile and liquid. Hence, the choice of industrial production as a proxy for GDP.</p>
 <p><strong>Transformation and visualisation of the variables</strong></p>
-<p>Since the effective fed funds rate, <span class="math inline">\(ff_t\)</span>, is in percentages it is not being transformed. For the money supply, <span class="math inline">\(M_t\)</span>, the log is taken:</p>
-<p><span class="math inline">\(m_t=\log(M_t)\)</span></p>
-<p>The same goes for <span class="math inline">\(SPX_t\)</span>, whereafter MoM returns are computed by taking first differences:</p>
-<p><span class="math inline">\(spx_t=\log(SPX_t-SPX_{t-1})\)</span></p>
-<p>For <span class="math inline">\(HP_t\)</span> I compute YoY returns by taking the differences with respect to the 12th lag. The reason for computing YoY returns for house prices is the lack of liquidity compared to stock markets.</p>
-<p><span class="math inline">\(hp_t=\log(HP_t-HP_{t-12})\)</span></p>
-<p>To compute YoY inflation the same is being done for <span class="math inline">\(CPI_t\)</span>:</p>
-<p><span class="math inline">\(inf_t=\log(CPI_t-CPI_{t-12})\)</span></p>
-<p>And last but not least the YoY growth of <span class="math inline">\(IP_t\)</span> is being computed:</p>
-<p><span class="math inline">\(ip_t=\log(IP_t-IP_{t-12})\)</span></p>
+<p>Since the effective fed funds rate, <span class="math inline">\(ff_t\)</span>, is in percentages it is not being transformed. However, for the rest of the variables the log-transformation is being applied and we therefore get the following:</p>
+<p><span class="math inline">\(m_t=\log(M_t)\)</span>, <span class="math inline">\(spx_t=\log(SPX_t)\)</span>, <span class="math inline">\(hp_t=\log(HP_t)\)</span>, <span class="math inline">\(cpi_t=\log(CPI_t)\)</span>, <span class="math inline">\(ip_t=\log(IP_t)\)</span>.</p>
 <p>This results in the following plots for the variables:</p>
 <div class="cell">
 
@@ -177,22 +169,22 @@ ul.task-list li input[type="checkbox"] {
 <p><img src="index_files/figure-html/plotting all time series-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>From a graphical inspection one can clearly see that <span class="math inline">\(m_t\)</span> and <span class="math inline">\(ip_t\)</span> are not stationary processes and might contain one or more unit roots. However, for <span class="math inline">\(spx_t\)</span>, <span class="math inline">\(hp_t\)</span>, <span class="math inline">\(inf_t\)</span> and <span class="math inline">\(ff_t\)</span> it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes.</p>
+<p>From a graphical inspection one can clearly see that <span class="math inline">\(m_t\)</span>, <span class="math inline">\(spx_t\)</span>, <span class="math inline">\(hp_t\)</span>, <span class="math inline">\(cpi_t\)</span> and <span class="math inline">\(ip_t\)</span> are not stationary processes and might contain one or more unit roots. However, for <span class="math inline">\(ff_t\)</span> it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes.</p>
 <div class="cell">
 
 </div>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
 <pre><code>                         Test statistic P-value Lags
-Money Supply                     -2.593   0.327   12
-SP500 Index                      -5.398   0.010   12
-House Price Index                -2.582   0.331   12
-Inflation                        -0.884   0.954   12
-Effective Fed Funds Rate         -3.161   0.095   12
-Industrial Production            -1.904   0.618   12</code></pre>
+Money Supply                     -2.425   0.398   12
+SP500 Index                      -2.413   0.403   12
+House Price Index                -3.035   0.140   12
+CPI                              -2.988   0.160   12
+Effective Fed Funds Rate         -3.043   0.137   12
+Industrial Production            -1.865   0.635   12</code></pre>
 </div>
 </div>
-<p>By looking at the p-values it seems like <span class="math inline">\(spx_t\)</span> is the only stationary variable as we cannot reject the null hypothesis of the other variables being a I(1) process. However, the test statistic for <span class="math inline">\(hp_t\)</span>, <span class="math inline">\(inf_t\)</span> and <span class="math inline">\(ff_t\)</span> seem to be very sensitive to the choice of lags as we do reject the null hypothesis for other <span class="math inline">\(p\)</span>. For now I will assume that <span class="math inline">\(spx_t\)</span> is the only stationary variable.</p>
+<p>By looking at the p-values it is clear that all variables are non-stationary as we cannot reject the null hypothesis of the variables being a I(1) process. However, the test statistic for <span class="math inline">\(ff_t\)</span> seems to be very sensitive to the choice of lags as we do reject the null hypothesis for other <span class="math inline">\(p\)</span>. I will proceed by treating all variables as unit root non stationary.</p>
 </section>
 <section id="the-model-and-hypothesis" class="level2">
 <h2 class="anchored" data-anchor-id="the-model-and-hypothesis">The model and hypothesis</h2>
