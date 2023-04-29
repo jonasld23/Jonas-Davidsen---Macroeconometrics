@@ -14,16 +14,29 @@ format:
 #| echo: false
 #| message: false
 #| warning: false
+
+#open packages
 library(fredr)
 library(quantmod)
+library(xts)
+library(ggplot2)
+library(gridExtra)
+library(datetimeutils)
 
+#input FRED key
 fredr_set_key("2ffcd7e6c4f6e03de63ae1a03e4c3e6e")
 
+#Load all data from 1987-01-01 to 2022-12-31
 M2 <- fredr(series_id = "M2SL", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 FF <- fredr(series_id = "FEDFUNDS", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 CPI <- fredr(series_id = "USACPIALLMINMEI", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 HP <- fredr(series_id = "CSUSHPISA", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+
 SPX <- getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-01", to = "2022-12-31")
+
 IP <- fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
 ```
 
@@ -59,25 +72,13 @@ Data from FRED Database is downloaded using the **fredr** package, while data fr
 
 **Transformation and visualisation of the variables**
 
-Since the effective fed funds rate, $ff_t$, is in percentages it is not being transformed. For the money supply, $M_t$, the log is taken:
+Since the effective fed funds rate, $ff_t$, is in percentages it is not being transformed. However, for the rest of the variables the log-transformation is being applied and we therefore get the following:
 
-$m_t=\log(M_t)$
-
-The same goes for $SPX_t$, whereafter MoM returns are computed by taking first differences:
-
-$spx_t=\log(SPX_t-SPX_{t-1})$
-
-For $HP_t$ I compute YoY returns by taking the differences with respect to the 12th lag. The reason for computing YoY returns for house prices is the lack of liquidity compared to stock markets.
-
-$hp_t=\log(HP_t-HP_{t-12})$
-
-To compute YoY inflation the same is being done for $CPI_t$:
-
-$inf_t=\log(CPI_t-CPI_{t-12})$
-
-And last but not least the YoY growth of $IP_t$ is being computed:
-
-$ip_t=\log(IP_t-IP_{t-12})$
+$m_t=\log(M_t)$,
+$spx_t=\log(SPX_t)$,
+$hp_t=\log(HP_t)$,
+$cpi_t=\log(CPI_t)$,
+$ip_t=\log(IP_t)$.
 
 This results in the following plots for the variables:
 
@@ -86,10 +87,6 @@ This results in the following plots for the variables:
 #| message: false
 #| warning: false
 #| results: hide
-
-library(xts)
-library(ggplot2)
-library(gridExtra)
 
 
 ## Log-transform data for M2, CPI & HP and transform SPX to monthly data
@@ -100,27 +97,19 @@ HP <- xts::xts(log(HP$value), HP$date)
 FF <- xts::xts(FF$value, FF$date)
 IP <- xts::xts(IP$value, IP$date)
 
-SPX <- xts::xts(log(SPX[,6]), order.by=as.Date(index(SPX)))
-SPX <- xts::apply.monthly(SPX, mean)
+#SPX needs some additional modification
+#Adjust SPX to use start of month data
 
-#Take first differences for HP, SPX and IP 
-
-HP <- diff(HP, lag = 12, na.pad = TRUE) # YoY return
-SPX <- diff(SPX) #MoM return
-INF <- 100*diff(CPI, lag = 12, na.pad = TRUE)
-
-#Remove first 12 observations from all variables to ensure same dimensions
-
-INF <- INF[-c(1:12)]
-M2 <- M2[-c(1:12)]
-FF <- FF[-c(1:12)]
-SPX <- SPX[-c(1:12)]
-HP <- HP[-c(1:12)]
-IP <- IP[-c(1:12)]
+#Find first date in each month
+dates <- nth_day(index(SPX), period = "month", n = "first")
+#Pull only values on those dates
+SPX <- SPX[index(SPX) %in% dates]
+#transfrom to log
+SPX <- xts::xts(log(SPX[,6]))
 
 index(SPX) <- as.Date(format(index(SPX), "%Y-%m-01")) #Make the dates in all series align
 
-Y <- cbind(M2, SPX, HP, INF, FF, IP)
+Y <- cbind(M2, SPX, HP, CPI, FF, IP)
 
 #Plotting the individual time series
 
@@ -131,7 +120,7 @@ m2 = ggplot(data = M2[,1], aes(x = index(M2[,1]), y = M2[,1])) +
 
 spx = ggplot(data = SPX[,1], aes(x = index(SPX), y = SPX[,1])) +
   geom_line(color = "black") +
-  labs(title = "SP500 Returns", x = "Year", y = expression(spx[t])) +
+  labs(title = "SP500 Index", x = "Year", y = expression(spx[t])) +
   theme_minimal()
 
 hp = ggplot(data = HP[,1], aes(x = index(HP[,1]), y = HP[,1])) +
@@ -139,9 +128,9 @@ hp = ggplot(data = HP[,1], aes(x = index(HP[,1]), y = HP[,1])) +
   labs(title = "National House Price Index", x = "Year", y = expression(hp[t])) +
   theme_minimal()
 
-inf = ggplot(data = INF[,1], aes(x = index(INF[,1]), y = INF[,1])) +
+cpi = ggplot(data = CPI[,1], aes(x = index(CPI[,1]), y = CPI[,1])) +
   geom_line(color = "black") +
-  labs(title = "Inflation", x = "Year", y = expression(inf[t])) +
+  labs(title = "CPI", x = "Year", y = expression(cpi[t])) +
   theme_minimal()
 
 ff = ggplot(data = FF[,1], aes(x = index(FF[,1]), y = FF[,1])) +
@@ -159,9 +148,9 @@ ip = ggplot(data = IP[,1], aes(x = index(IP[,1]), y = IP[,1])) +
 #| echo: false
 #| message: false
 #| warning: false
-grid.arrange(m2, spx, hp, inf, ff, ip, nrow = 3, ncol = 2)
+grid.arrange(m2, spx, hp, cpi, ff, ip, nrow = 3, ncol = 2)
 ```
-From a graphical inspection one can clearly see that $m_t$ and $ip_t$ are not stationary processes and might contain one or more unit roots. However, for $spx_t$, $hp_t$, $inf_t$ and $ff_t$ it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes. 
+From a graphical inspection one can clearly see that $m_t$, $spx_t$, $hp_t$, $cpi_t$ and $ip_t$ are not stationary processes and might contain one or more unit roots. However, for $ff_t$ it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes. 
 
 ```{r ADF Test}
 #| echo: false
@@ -188,7 +177,7 @@ for (i in 1:length(adf_)) {
   adf_table[i, "Lags_Used"] = round(adf_[[i]]$parameter,3)
 }
 # Print the data frame
-rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
+rownames(adf_table)<- c("Money Supply", "SP500 Returns", "House Price Index", "CPI","Effective Fed Funds Rate","Industrial Production")
 colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 #print(adf_table)
 
@@ -198,12 +187,12 @@ colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 #| message: false
 #| warning: false
 # Print the data frame
-rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Price Index", "Inflation","Effective Fed Funds Rate","Industrial Production")
+rownames(adf_table)<- c("Money Supply", "SP500 Index", "House Price Index", "CPI","Effective Fed Funds Rate","Industrial Production")
 colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 print(adf_table)
 ```
 
-By looking at the p-values it seems like $spx_t$ is the only stationary variable as we cannot reject the null hypothesis of the other variables being a I(1) process. However, the test statistic for $hp_t$, $inf_t$ and $ff_t$ seem to be very sensitive to the choice of lags as we do reject the null hypothesis for other $p$. For now I will assume that $spx_t$ is the only stationary variable.
+By looking at the p-values it is clear that all variables are non-stationary as we cannot reject the null hypothesis of the variables being a I(1) process. However, the test statistic for $ff_t$ seems to be very sensitive to the choice of lags as we do reject the null hypothesis for other $p$. I will proceed by treating all variables as unit root non stationary.
 
 ## The model and hypothesis
 
