@@ -162,9 +162,12 @@ library(tseries)
 library(tidyverse)
 max_lag = 12
 adf_ <- list()
+adf_diff <- list()
 for (i in 1:6) {
   adf_result = adf.test(Y[,i], k = max_lag)
   adf_[[i]] <- adf_result
+  adf_diff_result = adf.test(diff(Y[,i]), k = max_lag) # include testing for the first differences and extend the code below to include this in reporting
+  adf_diff[[i]] <- adf_diff_result
 }
 head(adf_)
 adf_table <- data.frame(Test_Statistic = numeric(length(adf_)), 
@@ -179,7 +182,7 @@ for (i in 1:length(adf_)) {
 # Print the data frame
 rownames(adf_table)<- c("Money Supply", "SP500 Returns", "House Price Index", "CPI","Effective Fed Funds Rate","Industrial Production")
 colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
-#print(adf_table)
+knitr::kable(adf_table, digits = 3) # a nicer presentation of table in Quarto
 
 ```
 ```{r test show}
