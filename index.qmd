@@ -605,7 +605,7 @@ Gibbs.sampler.base <- function(p,Y,X,priors,S1,S2, FF.V, B0.initial){
 ```
 
 ```{r baseline show}
-#| echo: false
+#| echo: true
 #| message: false
 #| warning: false
 # Run Basic function
