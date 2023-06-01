@@ -194,7 +194,7 @@ The estimation output I will interpret to measure how money supply shocks affect
 
 # Estimation Procedure
 
-The estimation procedure in this paper is based on the Markov Chain Monte Carlo (MCMC) Gibbs sampler algorithm presented in Waggoner & Zha (2003), since I will make use of exclusion restrictions to identify the SVAR model. 
+The estimation procedure in this paper is based on the Markov Chain Monte Carlo (MCMC) Gibbs sampler algorithm presented in @waggoner2003gibbs, since I will make use of exclusion restrictions to identify the SVAR model. 
 
 ## Basic Model
 
@@ -305,7 +305,7 @@ From which we get the posterior samples $\{b_1^{(s)},\dots, b_N^{(s)}\}^{S}_{s=1
 
 The gibbs sampler for
 $b_n^{(s)} \sim p(b_n | Y, X, b_1^{(s)}, \dots, b_{n-1}^{(s)}, b_{n+1}^{(s-1)}, \dots, b_N^{(s-1)})$
-is computed by following the algorithm proposed by Waggoner & Zha 2003. To facilitate this, following is defined:
+is computed by following the algorithm proposed by @waggoner2003gibbs. To facilitate this, following is defined:
 
 -   $U_n = \text{chol}\Big(\bar{\nu}\Big(V_n\bar{S}^{-1}V_n'\Big)^{-1}\Big)$,
     where $U_n$ is a $r_n \times r_n$ upper-triangular matrix.
@@ -326,7 +326,7 @@ The $1 \times r_n$ matrix $\alpha_n$ can now be constructed by drawing the first
     
 The remaining $r_n-1$ elements of $\alpha_n$ can be drawn from $N(0_{r_n-1},\bar{\nu}^{-1}I_{r_n-1})$, after which the draw of the full conditional distribution of $b_n$ can be computed by $b_n^{(s)}\alpha_nW_nU_n$.
 
-As already mentioned, these samples need to be normalized in order to ensure that a unique maximum is being found. I will not go into details of this procedure here, but rather refer to Waggoner & Zha (2003) for a rigorous outline.
+As already mentioned, these samples need to be normalized in order to ensure that a unique maximum is being found. I will not go into details of this procedure here, but rather refer to @waggoner2003likelihood for a rigorous outline.
 
 ## R Code Snippets
 
