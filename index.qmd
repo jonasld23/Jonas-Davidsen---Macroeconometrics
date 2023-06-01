@@ -330,7 +330,7 @@ As already mentioned, these samples need to be normalized in order to ensure tha
 
 ## R Code Snippets
 
-This section provides the R code behind the estimation procedure. In order to facilitate this, the following R functions are being used by the courtesy of Tomasz Wozníak.
+This section provides the R code behind the estimation procedure. In order to facilitate this, the following R functions are being used by the courtesy of Tomasz Woźniak.
 
 The following function computes an orthogonal complement matrix to the input x, which is used in the **rgn()** function presented below.
 ```{r}
