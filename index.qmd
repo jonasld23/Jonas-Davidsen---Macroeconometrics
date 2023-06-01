@@ -7,37 +7,60 @@ format:
     toc: true
     toc-location: left
 ---
-> Disclaimer: This document is merely a research proposal and therefore still subject to changes along the process.\
 
+> Disclaimer: This document is merely a research proposal and therefore still subject to changes along the process.\
 
 ```{r download data}
 #| echo: false
 #| message: false
 #| warning: false
 
-#open packages
+#load packages
 library(fredr)
 library(quantmod)
 library(xts)
 library(ggplot2)
 library(gridExtra)
 library(datetimeutils)
+library(mvtnorm)
+library(MASS)
+library(tseries)
+library(tidyverse)
+library(parallel)
 
 #input FRED key
 fredr_set_key("2ffcd7e6c4f6e03de63ae1a03e4c3e6e")
 
-#Load all data from 1987-01-01 to 2022-12-31
-M2 <- fredr(series_id = "M2SL", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+#Load all data from 1987-01-01 to 2022-12-31 and transform to log for M2, FF, CPI, HP and IP
+M2   <- as.data.frame(fredr(series_id = "M2SL", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31")))
+M2   <- ts(log(M2[,3]), start=c(1987,1), frequency=12)
 
-FF <- fredr(series_id = "FEDFUNDS", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+FF   <- as.data.frame(fredr(series_id = "FEDFUNDS", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31")))
+FF   <- ts(FF[,3], start=c(1987,1), frequency=12)
 
-CPI <- fredr(series_id = "USACPIALLMINMEI", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+CPI  <- as.data.frame(fredr(series_id = "USACPIALLMINMEI", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31")))
+CPI  <- ts(log(CPI[,3]), start=c(1987,1), frequency=12)
 
-HP <- fredr(series_id = "CSUSHPISA", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+HP   <- as.data.frame(fredr(series_id = "CSUSHPISA", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31")))
+HP   <- ts(log(HP[,3]), start=c(1987,1), frequency=12)
 
-SPX <- getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-01", to = "2022-12-31")
+IP   <- as.data.frame(fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31")))
+IP   <- ts(log(IP[,3]), start=c(1987,1), frequency=12)
 
-IP <- fredr(series_id = "INDPRO", observation_start = as.Date("1987-01-01"), observation_end = as.Date("2022-12-31"))
+#SPX needs some additional modification
+SPX  <- as.xts(getSymbols("^GSPC", src = "yahoo", auto.assign = FALSE, from = "1987-01-01", to = "2022-12-31"))
+
+#Adjust SPX to use start of month data
+#Find first date in each month
+dates <- nth_day(index(SPX), period = "month", n = "first")
+#Pull only values on those dates
+SPX <- SPX[index(SPX) %in% dates]
+#transfrom to log
+SPX <- as.data.frame(SPX)
+SPX <- ts(log(SPX[,6]), start=c(1987,1), frequency=12)
+
+#Create y matrix
+y <- cbind(CPI, IP, FF, M2, IP, SPX)
 ```
 
 ## The question, objective and motivation
@@ -52,21 +75,27 @@ How does money supply affect asset prices and inflation and what are the implica
 
 **Motivation**
 
-Despite extensive Quantitative Easing (QE) programs following the financial crisis in 2008, inflation continued to remain well under the target level in many advanced economies. Rather, the increase in the money supply primarily seemed to inflate asset prices instead of the general price level and in other words struggled to stimulate aggregate demand. However, following the Covid-19 pandemic central banks quite drastically expanded their QE programs and thereby raised the money supply to unprecedented levels in response to the economic downturn. Among other factors such as supply chain issues, surging energy prices and massive fiscal stimulus, this has been one of the drivers behind inflation reaching double digits recently in many countries. This raises questions about the effectiveness of monetary policy in stimulating the economy and simultaneously controlling inflation. Another concern regarding QE mainly inflating asset prices, is that it can lead to financial instability in terms of increased risk of assets becoming overvalued and detached from the underlying fundamentals. This can lead to asset price bubbles and increase the amount of speculation among investors. It is therefore crucial for both policy makers and investors to understand the mechanisms through which a money supply shock affects different economic variables such as asset prices and inflation in light of economic and financial stability. 
+Despite extensive Quantitative Easing (QE) programs following the financial crisis in 2008, inflation continued to remain well under the target level in many advanced economies. Rather, the increase in the money supply primarily seemed to inflate asset prices instead of the general price level and in other words struggled to stimulate aggregate demand. However, following the Covid-19 pandemic central banks quite drastically expanded their QE programs and thereby raised the money supply to unprecedented levels in response to the economic downturn. Among other factors such as supply chain issues, surging energy prices and massive fiscal stimulus, this has been one of the drivers behind inflation reaching double digits recently in many countries. This raises questions about the effectiveness of monetary policy in stimulating the economy and simultaneously controlling inflation. Another concern regarding QE mainly inflating asset prices, is that it can lead to financial instability in terms of increased risk of assets becoming overvalued and detached from the underlying fundamentals. This can lead to asset price bubbles and increase the amount of speculation among investors. It is therefore crucial for both policy makers and investors to understand the mechanisms through which a money supply shock affects different economic variables such as asset prices and inflation in light of economic and financial stability.
 
 ## Data and their properties
 
 So far the intention is to include the following six variables for the US economy in the SVAR model.
 
-* $M_t$: M2 aggregate from FRED Database
+-   $M_t$: M2 aggregate from FRED Database
 
-* $SPX_t$: SP500 index from Yahoo Finance
-* $HP_t$: S&P/Case-Shiller U.S. National Home Price Index from FRED Database
-* $CPI_t$: Consumer Price Index: All Items for the US from FRED Database
-  + Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of money supply shocks to asset prices and the real economy. Further, the CPI is chosen as it is commonly used to construct the so-called headline inflation.
-* $ff_t$: Effective Fed Funds Rate from FRED Database
-* $IP_t$:  Industrial Production: Total Index
-  + Motivation: The effective fed funds rate is the rate at which banks lend and borrow funds from each other overnight and is obviously heavily influenced by the actual fed funds rate. Industrial production is a measure for monthly US real activity and is chosen since actual GDP data is only available for each quarter. These two variables are important to include as they play a crucial role in the relationship between money supply, asset prices and inflation and therefore serve as control variables.
+-   $SPX_t$: SP500 index from Yahoo Finance
+
+-   $HP_t$: S&P/Case-Shiller U.S. National Home Price Index from FRED Database
+
+-   $CPI_t$: Consumer Price Index: All Items for the US from FRED Database
+
+    -   Motivation: Given my focus on the relationship between money supply, asset prices and inflation, a measure for those three variables are needed. As a measure for money supply the M2 aggregate is chosen as it serves as a good proxy for the availability of liquidity in the economy. As measures for asset prices, both stock prices and house prices are included. These two types of assets are big components of the total assets in the economy and provide a way to investigate the transmission mechanism of money supply shocks to asset prices and the real economy. Further, the CPI is chosen as it is commonly used to construct the so-called headline inflation.
+
+-   $ff_t$: Effective Fed Funds Rate from FRED Database
+
+-   $IP_t$: Industrial Production: Total Index
+
+    -   Motivation: The effective fed funds rate is the rate at which banks lend and borrow funds from each other overnight and is obviously heavily influenced by the actual fed funds rate. Industrial production is a measure for monthly US real activity and is chosen since actual GDP data is only available for each quarter. These two variables are important to include as they play a crucial role in the relationship between money supply, asset prices and inflation and therefore serve as control variables.
 
 Data from FRED Database is downloaded using the **fredr** package, while data from Yahoo Finance is downloaded using the **quantmod** package. My sample period will be from M1 1987 - M12 2022 as data for $HP_t$ only goes back to this period. As I am including stock prices in my model I choose the frequency of the data to be monthly and not quarterly as stocks are highly volatile and liquid. Hence, the choice of industrial production as a proxy for GDP.
 
@@ -74,11 +103,7 @@ Data from FRED Database is downloaded using the **fredr** package, while data fr
 
 Since the effective fed funds rate, $ff_t$, is in percentages it is not being transformed. However, for the rest of the variables the log-transformation is being applied and we therefore get the following:
 
-$m_t=\log(M_t)$,
-$spx_t=\log(SPX_t)$,
-$hp_t=\log(HP_t)$,
-$cpi_t=\log(CPI_t)$,
-$ip_t=\log(IP_t)$.
+$m_t=\log(M_t)$, $spx_t=\log(SPX_t)$, $hp_t=\log(HP_t)$, $cpi_t=\log(CPI_t)$, $ip_t=\log(IP_t)$.
 
 This results in the following plots for the variables:
 
@@ -86,71 +111,22 @@ This results in the following plots for the variables:
 #| echo: false
 #| message: false
 #| warning: false
-#| results: hide
 
+#create date and variable name vector
+date <- time(y)
+names <- c("CPI", "IP", "FF", "M2", "HP", "SPX")
 
-## Log-transform data for M2, CPI & HP and transform SPX to monthly data
-
-M2 <- xts::xts(log(M2$value), M2$date)
-CPI <- xts::xts(log(CPI$value), CPI$date)
-HP <- xts::xts(log(HP$value), HP$date)
-FF <- xts::xts(FF$value, FF$date)
-IP <- xts::xts(IP$value, IP$date)
-
-#SPX needs some additional modification
-#Adjust SPX to use start of month data
-
-#Find first date in each month
-dates <- nth_day(index(SPX), period = "month", n = "first")
-#Pull only values on those dates
-SPX <- SPX[index(SPX) %in% dates]
-#transfrom to log
-SPX <- xts::xts(log(SPX[,6]))
-
-index(SPX) <- as.Date(format(index(SPX), "%Y-%m-01")) #Make the dates in all series align
-
-Y <- cbind(M2, SPX, HP, CPI, FF, IP)
-
-#Plotting the individual time series
-
-m2 = ggplot(data = M2[,1], aes(x = index(M2[,1]), y = M2[,1])) +
-  geom_line(color = "black") +
-  labs(title = "Money Supply - M2", x = "Year", y = expression(m[t])) +
-  theme_minimal()
-
-spx = ggplot(data = SPX[,1], aes(x = index(SPX), y = SPX[,1])) +
-  geom_line(color = "black") +
-  labs(title = "SP500 Index", x = "Year", y = expression(spx[t])) +
-  theme_minimal()
-
-hp = ggplot(data = HP[,1], aes(x = index(HP[,1]), y = HP[,1])) +
-  geom_line(color = "black") +
-  labs(title = "National House Price Index", x = "Year", y = expression(hp[t])) +
-  theme_minimal()
-
-cpi = ggplot(data = CPI[,1], aes(x = index(CPI[,1]), y = CPI[,1])) +
-  geom_line(color = "black") +
-  labs(title = "CPI", x = "Year", y = expression(cpi[t])) +
-  theme_minimal()
-
-ff = ggplot(data = FF[,1], aes(x = index(FF[,1]), y = FF[,1])) +
-  geom_line(color = "black") +
-  labs(title = "Effective Fed Funds Rate", x = "Year", y = expression(ff[t])) +
-  theme_minimal()
-
-ip = ggplot(data = IP[,1], aes(x = index(IP[,1]), y = IP[,1])) +
-  geom_line(color = "black") +
-  labs(title = "Industrial Production", x = "Year", y = expression(ip[t])) +
-  theme_minimal()
+#plot all time series
+par(mfrow=c(3,2), mar=c(2,2,2,2))
+for (i in 1:6){
+  plot(date, y = y[,i], type = "l", 
+       main = paste(names[i]), ylab = "", xlab = "",
+       col = "plum4", lwd = 1.5,
+       ylim = c(min(y[,i]),max(y[,i])))
+}
 ```
 
-```{r plotting all time series}
-#| echo: false
-#| message: false
-#| warning: false
-grid.arrange(m2, spx, hp, cpi, ff, ip, nrow = 3, ncol = 2)
-```
-From a graphical inspection one can clearly see that $m_t$, $spx_t$, $hp_t$, $cpi_t$ and $ip_t$ are not stationary processes and might contain one or more unit roots. However, for $ff_t$ it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes. 
+From a graphical inspection one can clearly see that $m_t$, $spx_t$, $hp_t$, $cpi_t$ and $ip_t$ are not stationary processes and might contain one or more unit roots. However, for $ff_t$ it is rather ambiguous whether the variables are stationary or not. It is essential to know whether we are dealing with non-stationary processes or not when setting the prior distributions for the variables. By making use of the Augmented Dickey Fuller (ADF) test it can be tested formally whether the variables are unit root processes.
 
 ```{r ADF Test}
 #| echo: false
@@ -158,13 +134,11 @@ From a graphical inspection one can clearly see that $m_t$, $spx_t$, $hp_t$, $cp
 #| warning: false
 #| results: hide
 
-library(tseries)
-library(tidyverse)
 max_lag = 12
 adf_ <- list()
 adf_diff <- list()
 for (i in 1:6) {
-  adf_result = adf.test(Y[,i], k = max_lag)
+  adf_result = adf.test(y[,i], k = max_lag)
   adf_[[i]] <- adf_result
   adf_diff_result = adf.test(diff(Y[,i]), k = max_lag) # include testing for the first differences and extend the code below to include this in reporting
   adf_diff[[i]] <- adf_diff_result
@@ -185,6 +159,7 @@ colnames(adf_table)<- c("Test statistic", "P-value", "Lags")
 knitr::kable(adf_table, digits = 3) # a nicer presentation of table in Quarto
 
 ```
+
 ```{r test show}
 #| echo: false
 #| message: false
@@ -201,29 +176,645 @@ By looking at the p-values it is clear that all variables are non-stationary as 
 
 For investigating the effect of money supply on asset prices and inflation a structural VAR model will be used in this research project. The structural VAR model with $p$ lags can written as
 
+```{=tex}
 \begin{align}
 B_0y_t &= b_0 + B_1y_{t-1}+\dots+B_py_{t-p}+w_t
 \end{align}
+```
+where $y_t=[m_t$ $spx_t$ $hp_t$ $inf_t$ $ff_t$ $ip_t]'$ and contains the six variables presented above. The error term $u_t$ conditioned on the past is assumed to be $w_t|Y_{t-1}\sim\;iid(\textbf{0}_N,I_N)$, where $N=6$ in my case. The $B_0$ is the so-called structural matrix and contains all contemporaneous relationships between the variables, which I essentially am interested in. However, this matrix can't just be estimated without certain assumptions. Therefore, the first step is to premultiply $B_0^{-1}$ on both sides so that we obtain the reduced form of the SVAR model:
 
-where $y_t=[m_t$   $spx_t$   $hp_t$   $inf_t$   $ff_t$   $ip_t]'$ and contains the six variables presented above. The error term $u_t$ conditioned on the past is assumed to be $w_t|Y_{t-1}\sim\;iid(\textbf{0}_N,I_N)$, where $N=6$ in my case. The $B_0$ is the so-called structural matrix and contains all contemporaneous relationships between the variables, which I essentially am interested in. However, this matrix can't just be estimated without certain assumptions. Therefore, the first step is to premultiply $B_0^{-1}$ on both sides so that we obtain the reduced form of the SVAR model:
-
+```{=tex}
 \begin{align}
 y_t &= \mu_0 + A_1y_{t-1}+\dots+A_py_{t-p}+u_t
 \end{align}
-
+```
 Where $A_i=B_0^{-1}B_i$ and $u_t=B_0^{-1}w_t$. It is assumed that $u_t|Y_{t-1}\sim\;iid(\textbf{0}_N,\Sigma)$, which allows us to denote $\Sigma = B_0^{-1} (B_0^{-1})'$. In order to reconstruct $B_0^{-1}$ and thereby identify the SVAR model restrictions on the matrix need to imposed. As $B_0^{-1}$ consists of $K(K+1)/2$ variables, at least $K(K-1)/2$ restrictions need to be imposed. This can be done in multiple ways. In this project I will impose zero exclusion restrictions on $B_0^{-1}$ by either implying recursive or a non-recursive system between the variables. It is important to note that if I choose a recursive system the ordering of $y_t$ is crucial and is therefore still subject to change.
 
-The estimation output I will interpret to measure how money supply shocks affect asset prices and inflation will be impulse response functions (IRFs) and forecast error variance decomposition (FEVDs). IRFs measures the dynamic response of a variable to a given shock, while FEVDs are a measure for the contribution of different shocks to the forecast error variance of a certain variable. 
+The estimation output I will interpret to measure how money supply shocks affect asset prices and inflation will be impulse response functions (IRFs) and forecast error variance decomposition (FEVDs). IRFs measures the dynamic response of a variable to a given shock, while FEVDs are a measure for the contribution of different shocks to the forecast error variance of a certain variable.
+
+# Estimation Procedure
+
+The estimation procedure in this paper is based on the Markov Chain Monte Carlo (MCMC) Gibbs sampler algorithm presented in Waggoner & Zha (2003), since I will make use of exclusion restrictions to identify the SVAR model. 
+
+## Basic Model
+
+First, I redefine the model presented in the previous section to the following:
+
+```{=tex}
+\begin{align}
+B_0y_t &= b_0 + B_1y_{t-1} + \dots + B_py_{t-p} u_t\\
+       &= B_+ x_t + u_t
+\end{align}
+```
+Where $B_+=\big[b_0\;B_1\;\dots\;B_p\big]$ and $x_t=\big[1\;y_{t-1}'\;\dots\;y_{t-p}'\big]$. 
+As $B_0$ is the structural matrix the exclusion restrictions will be set on its rows such that $B_0=\left[b_1V_1\;\dots\;b_NV_N\right]'$ holds, where $B_{0[n\cdot]}=b_n\;V_n$ and represents the $n$th row of $B_0$. The dimension of $b_n$ is $1\times r_n$ and is a vector of the unrestricted elements of the $n$th row of $B_0$. The matrix $V_n$ is of dimension $r_n\times N$ and consists only of ones and zeroes since it is the restriction matrix. Now the structural model can be written equation-by-equation in the following way:
+
+```{=tex}
+\begin{align}
+b_nV_ny_t &= B_nx_t + u_{n.t}\\
+u_{n.t}   &\sim \mathcal{N}(0,1)
+\end{align}
+```
+Which subsequently can be rewritten in matrix form as:
+
+```{=tex}
+\begin{align}
+b_nV_nY &= B_nX+ U_n\\
+U_n   &\sim \mathcal{N}(0_T,I_T)
+\end{align}
+```
+where $\underset{(N \times T)}{Y}=\begin{pmatrix}
+    y_1, \dots , y_T
+\end{pmatrix}$, $\underset{(K \times T)}{X}=\begin{pmatrix}
+    x_1, \dots , x_T
+\end{pmatrix}$, $\underset{(1 \times T)}{U_n}=\begin{pmatrix}
+    u_{n.1}, \dots , u_{n.T}
+\end{pmatrix}$ and $\underset{(1 \times K)}{B_n}= B_{+[n.]}$.
+
+For convenience the likelihood function of $B_0$ and $B_+$ given data can be written as a $\mathcal{NGN}$ distribution:
+
+```{=tex}
+\begin{align}
+L(B_+,B_0 | Y, X) \propto |\det(B_0)|^T \exp \left\{-\frac{1}{2} \sum_{n=1}^N (b_nV_nY-B_nX)(b_nV_nY-B_nX)'  \right\}
+\end{align}
+```
+Moving to the prior distribution, the $\mathcal{NGN}$ distribution is being used as a natural-conjugate prior. Therefore, I define $p(B_+,B_0)\sim \mathcal{NGN}(\underline{B}, \underline{\Omega}, \underline{S}, \underline{\nu})$, where the following holds:
+
+```{=tex}
+\begin{align}
+p(B_+,B_0)&=\left(\prod_{n=1}^N p(B_n|b_n)\right)p(b_1,\dots,b_n)\\
+p(B_n|b_n)&\sim \mathcal{N}_K (b_nV_n\underline{B},\underline{\Omega})\\
+p(b_1,\dots,b_n) &\propto |\det (B_0)|^{\underline{\nu}-N} \exp \left\{-\frac{1}{2}\sum_{n=1}^Nb_nV_n\underline{S}^{-1}V_n'b_n'\right\}
+\end{align}
+```
+Which results in the following kernel of the natural-conjugate prior distribution:
+
+```{=tex}
+\begin{align}
+|\det(B_0)|^{\underline{\nu}-N} \exp \left\{-\frac{1}{2} \sum_{n=1}^N b_nV_n\underline{S}^{-1}V_n'B_n'\right\} \times \exp \left\{-\frac{1}{2} \sum_{n=1}^N (B_n-b_nV_n\underline{B})\underline{\Omega}^{-1}(B_n-b_nV_n\underline{B})'\right\}
+\end{align}
+```
+For the prior parameters the Minnesota prior parameters are being exploited:
+
+```{=tex}
+\begin{align}
+\underline{B} &= \left[0_{N\times 1}\;I_N\;0_{N\times(p-1)N}\right]\\
+\underline{\Omega} &= \text{diag} \left(\left[\kappa_2\;\kappa_1(\textbf{p}^{-2}\otimes I_N')\right)\right]\\
+\underline{S} &= \kappa_0I_N\\
+\underline{\nu} &= N
+\end{align}
+```
+
+This enables us to derive the posterior distribution:
+
+```{=tex}
+\begin{align}
+p(B_+,B_0|Y,X) &\propto L(B_+,B_0|Y,X)p(B_+,B_0)\\
+               &\propto |\det(B_0)|^T \exp \left\{-\frac{1}{2} \sum_{n=1}^N (b_nV_nY-B_nX)(b_nV_nY-B_nX)'  \right\}\\
+               &\times |\det(B_0)|^{\underline{\nu}-N} \exp \left\{-\frac{1}{2} \sum_{n=1}^N b_nV_n\underline{S}^{-1}V_n'B_n'\right\} \\ &\times \exp \left\{-\frac{1}{2} \sum_{n=1}^N (B_n-b_nV_n\underline{B})\underline{\Omega}^{-1}(B_n-b_nV_n\underline{B})'\right\}
+\end{align}
+```
+
+By performing appropriate operations this can be expressed more densely the following way:
+
+```{=tex}
+\begin{align}
+p(B_+,B_0|Y,X) &\propto |\det(B_0)|^{T+\underline{\nu}-N} \exp \left\{-\frac{1}{2} \sum_{n=1}^N (B_n-b_nV_n\bar{B})\bar{\Omega}^{-1}(B_n-b_nV_n\bar{B})'+b_nV_n\bar{S}^{-1}V_n'b_n'\right\}
+\end{align}
+```
+
+Leading to the following posterior parameters:
+
+```{=tex}
+\begin{align}
+p(B_+,B_0|Y,X) &\sim \mathcal{NGN}(\bar{B},\bar{\Omega},\bar{S},\bar{\nu})\\
+\bar{\Omega}&=\left[XX'+\underline{\Omega}^{-1}\right]^{-1}\\
+\bar{B}&=\left[YX'+\underline{B\Omega}^{-1}\right]\bar{\Omega}\\
+\bar{S}&=\left[YY'+\underline{S}^{-1}+\underline{B\Omega}^{-1}\underline{B}'-\bar{B}\bar{\Omega}^{-1}\bar{B}'\right]^{-1}\\
+\bar{\nu}&= T+\underline{\nu}
+\end{align}
+```
+
+## The Gibbs Sampler
+
+Having derived the posterior parameters, the gibbs sampler can now be scrutinized. As already outlined, the sampler is based on the $\mathcal{NGN}$ distribution. Further, the algorithm is divided into two steps. First, $B_0$ is drawn $S1+S2$ times from
+\begin{gather*}
+    p(b_n | Y, X, b_1, \dots, b_{n-1}, b_{n+1}, \dots, b_N) 
+\end{gather*} 
+From which we get the posterior samples $\{b_1^{(s)},\dots, b_N^{(s)}\}^{S}_{s=1}$. Next step is to normalize these samples, so we subsequently can sample $B_n$ directly for each draw of $b_n^{(s)}$ from $p(B_n|Y,X,b_n)$. Based on this, the posterior draws $\left\{B_+^{(s)},B_0^{(s)}\right\}_{s=1}^{S1+S2}$ can be returned.
+
+The gibbs sampler for
+$b_n^{(s)} \sim p(b_n | Y, X, b_1^{(s)}, \dots, b_{n-1}^{(s)}, b_{n+1}^{(s-1)}, \dots, b_N^{(s-1)})$
+is computed by following the algorithm proposed by Waggoner & Zha 2003. To facilitate this, following is defined:
+
+-   $U_n = \text{chol}\Big(\bar{\nu}\Big(V_n\bar{S}^{-1}V_n'\Big)^{-1}\Big)$,
+    where $U_n$ is a $r_n \times r_n$ upper-triangular matrix.
+    
+-   $w = \left[B_{0[-n.]}^{(s)}\right]_\perp$, where $w$ is a $1 \times N$ matrix. 
+
+-   $w_1 = wV_n'U_n'\cdot \Big( wV_n'U_n'V_nU_nw'\Big)^{-\frac{1}{2}}$,
+    where $w_1$ is a $1 \times r_n$ vector.
+
+-   $W_n=\begin{pmatrix} w_1' & w_{1\perp}' \end{pmatrix}$, where $W_n$
+    is a matrix of dimensions $r_n \times r_n$.
+
+The $1 \times r_n$ matrix $\alpha_n$ can now be constructed by drawing the first element of $\alpha_n$ by following this procedure:
+
+-   Draw $u \sim N(0_{\nu+1},{\bar{\nu}^{-1}I_{\nu+1}})$
+
+-   Set $\alpha_{n[\cdot 1]} = \begin{cases}\sqrt{u'u} \text{ with probability 0.5}\\-\sqrt{u'u} \text{ with probability 0.5}\end{cases}$ 
+    
+The remaining $r_n-1$ elements of $\alpha_n$ can be drawn from $N(0_{r_n-1},\bar{\nu}^{-1}I_{r_n-1})$, after which the draw of the full conditional distribution of $b_n$ can be computed by $b_n^{(s)}\alpha_nW_nU_n$.
+
+As already mentioned, these samples need to be normalized in order to ensure that a unique maximum is being found. I will not go into details of this procedure here, but rather refer to Waggoner & Zha (2003) for a rigorous outline.
+
+## R Code Snippets
+
+This section provides the R code behind the estimation procedure. In order to facilitate this, the following R functions are being used by the courtesy of Tomasz Wozníak.
+
+The following function computes an orthogonal complement matrix to the input x, which is used in the **rgn()** function presented below.
+```{r}
+orthogonal.complement.matrix.TW = function(x){
+  # x is a mxn matrix and m>n
+  # the function returns a mx(m-n) matrix, out, that is an orthogonal complement of x, i.e.:
+  # t(x)%*%out = 0 and det(cbind(x,out))!=0
+  if( dim(x)[1] == 1 & dim(x)[2] == 2){
+    x = t(x)
+  }
+  # x <- ifelse(dim(x)[1] == 1 && dim(x)[2] == 2, t(x), x)
+  N     = dim(x)
+  tmp   = qr.Q(qr(x, tol = 1e-10),complete=TRUE)
+  out   = as.matrix(tmp[,(N[2]+1):N[1]])
+  return(out)
+}
+```
+
+The **rgn()** function simulates draws for $b_n$ from a $\mathcal{NGN}$ distribution
+```{r}
+rgn             = function(n,S.inv,nu,V,B0.initial){
+  # This function simulates draws for the unrestricted elements 
+  # of the conteporaneous relationships matrix of an SVAR model
+  # from a generalized-normal distribution according to algorithm 
+  # by Waggoner & Zha (2003, JEDC)
+  # n     - a positive integer, the number of draws to be sampled
+  # S     - an NxN positive definite matrix, a parameter of the generalized-normal distribution
+  # nu    - a positive scalar, degrees of freedom parameter
+  # V     - an N-element list, with fixed matrices
+  # B0.initial - an NxN matrix, of initial values of the parameters
+  
+  N             = nrow(B0.initial)
+  no.draws      = n
+  
+  B0            = array(NA, c(N,N,no.draws))
+  B0.aux        = B0.initial
+  
+  for (i in 1:no.draws){
+    for (n in 1:N){
+      rn            = nrow(V[[n]])
+      Un            = chol(nu*solve(V[[n]]%*%S.inv%*%t(V[[n]])))
+      w             = t(orthogonal.complement.matrix.TW(t(B0.aux[-n,])))
+      w1            = w %*% t(V[[n]]) %*% t(Un) / sqrt(as.numeric(w %*% t(V[[n]]) %*% t(Un) %*% Un %*% V[[n]] %*% t(w)))
+      if (rn>1){
+        Wn          = cbind(t(w1),orthogonal.complement.matrix.TW(t(w1)))
+      } else {
+        Wn          = w1
+      }
+      alpha         = rep(NA,rn)
+      u             = rmvnorm(1,rep(0,nu+1),(1/nu)*diag(nu+1))
+      alpha[1]      = sqrt(as.numeric(u%*%t(u)))
+      if (runif(1)<0.5){
+        alpha[1]    = -alpha[1]
+      }
+      if (rn>1){
+        alpha[2:rn] = rmvnorm(1,rep(0,nrow(V[[n]])-1),(1/nu)*diag(rn-1))
+      }
+      bn            = alpha %*% Wn %*% Un
+      B0.aux[n,]    = bn %*% V[[n]]
+    }
+    B0[,,i]         = B0.aux
+  }
+  
+  return(B0)
+}
+```
+
+The next function normalizes the matrix of the contemporaneous effects, $B_0$:
+
+```{r}
+normalization.wz2003  = function(B0,B0.hat.inv, Sigma.inv, diag.signs){
+  # This function normalizes a matrix of contemporaneous effects
+  # according to the algorithm by Waggoner & Zha (2003, JOE)
+  # B0        - an NxN matrix, to be normalized
+  # B0.hat    - an NxN matrix, a normalized matrix
+  
+  N                 = nrow(B0)
+  K                 = 2^N
+  distance          = rep(NA,K)
+  for (k in 1:K){
+    B0.tmp.inv      = solve(diag(diag.signs[k,]) %*% B0)
+    distance[k]     = sum(
+      unlist(
+        lapply(1:N,
+               function(n){
+                 t(B0.tmp.inv - B0.hat.inv)[n,] %*%Sigma.inv %*% t(B0.tmp.inv - B0.hat.inv)[n,]
+               }
+        )))
+  }
+  B0.out            = diag(diag.signs[which.min(distance),]) %*% B0
+  
+  return(B0.out)
+}
+```
+
+This function normalizes the output from the **rgn()** function, ensuring that we obtain a unique maximum
+```{r}
+normalize.Gibbs.output.parallel          = function(B0.posterior,B0.hat){
+  # This function normalizes the Gibbs sampler output from function rgn
+  # using function normalization.wz2003 
+  # B0.posterior  - a list, output from function rgn
+  # B0.hat        - an NxN matrix, a normalized matrix
+  
+  N                 = nrow(B0.hat)
+  K                 = 2^N
+  
+  B0.hat.inv        = solve(B0.hat)
+  Sigma.inv         = t(B0.hat)%*%B0.hat
+  
+  diag.signs        = matrix(NA,2^N,N)
+  for (n in 1:N){
+    diag.signs[,n]  = kronecker(c(-1,1),rep(1,2^(n-1)))
+  }
+  
+  B0.posterior.n    = mclapply(1:dim(B0.posterior)[3],function(i){
+    normalization.wz2003(B0=B0.posterior[,,i],B0.hat.inv, Sigma.inv, diag.signs)
+  },mc.cores=1
+  )
+  B0.posterior.n  = simplify2array(B0.posterior.n)
+  
+  return(B0.posterior.n)
+}
+```
+
+Lastly, a function for simulating the draws of the multivariate normal distribution of the autoregressive slope matrix, $B_+$, is needed
+```{r}
+rnorm.ngn       = function(B0.posterior,B,Omega){
+  # This function simulates draws for the multivariate normal distribution
+  # of the autoregressive slope matrix of an SVAR model
+  # from a normal-generalized-normal distribution according to algorithm 
+  # by Waggoner & Zha (2003, JEDC)
+  # B0.posterior  - a list, output from function rgn
+  # B             - an NxK matrix, a parameter determining the mean of the multivariate conditionally normal distribution given B0
+  # Omega         - a KxK positive definite matrix, a covariance matrix of the multivariate normal distribution
+  
+  N             = nrow(B)
+  K             = ncol(B)
+  no.draws      = dim(B0.posterior)[3]
+  L             = t(chol(Omega))
+  
+  Bp.posterior  = lapply(1:no.draws,function(i){
+    Bp          = matrix(NA, N, K)
+    for (n in 1:N){
+      Bp[n,]    = as.vector(t(B0.posterior[n,,i] %*% B) + L%*%rnorm(K))
+    }
+    return(Bp)
+  })
+  Bp.posterior  = simplify2array(Bp.posterior)
+  return(Bp.posterior)
+}
+```
+
+Having set up all the necessary functions, I now simulate a bivariate random walk to produce artificial data.
+
+```{r}
+#Simulation of data
+
+p = 1
+T = 500
+N = 2
+K = 1 + N*p
+
+Y           = arima.sim(list(order = c(0,1,0)), n = T + p-1, mean = 0, sd =1)
+for (i in 2:N){
+  Y         = rbind(Y, arima.sim(list(order = c(0,1,0)), n = T + p-1, mean = 0, sd = 1))
+}
+
+X           = matrix(1,1,T)
+for (i in 1:p){
+  X         = rbind(X, Y[,(p+1-i):(ncol(Y)-i)])
+}
+Y           = Y[,-p]
+artificialdata  = list(p = p, N = N, K = K, Y = Y, X = X)
+
+#This model requires the Y and X matrix to be transposed 
+# Y       = t(Y)
+# X       = t(X)
+```
+
+Next, I set the priors in regards to the specification from above. Further, I create the restriction matrix $V_n$. Note, that I imply a recursive structure in the system. 
+
+```{r}
+# set the priors
+kappa0     = 10
+kappa1     = .1  
+kappa2     = 10
+
+priors     = list(
+  B        = cbind(rep(0,N), diag(N), matrix(0, N, (p-1)*N)),
+  Omega    = diag(c(kappa2,kappa1*((1:p)^(-2))%x%rep(1,N))),
+  S        = kappa0*diag(N),
+  nu       = N
+)
+
+# create the V matrices
+FF.V           = vector("list",N)
+for (n in 1:N){
+  FF.V[[n]]   = cbind(diag(n),matrix(0,n,N-n))
+}
+
+# create initial B0 matrix
+B0.initial = matrix(0,N,N)
+for (n in 1:N){
+  unrestricted    = apply(FF.V[[n]],2,sum)==1
+  B0.initial[n,unrestricted] = rnorm(sum(unrestricted))
+}
+```
+
+Finally, the gibbs sampler for the basic model can be presented
+
+```{r}
+Gibbs.sampler.base <- function(p,Y,X,priors,S1,S2, FF.V, B0.initial){
+
+  N       = nrow(Y)
+  p       = 1 # calculate from X and Y (K and N)
+  K       = 1+N*p
+  S1      = S1
+  S2      = S2
+  kappa0 = 10
+  kappa1 = 10
+  kappa2 = 0.1
+
+  B0.posterior    <- array(NA,c(N,N,(S1+S2)))
+  Bp.posterior    <- array(NA,c(N,(1+N*p),(S1+S2)))
+
+  for (s in 1:(S1+S2)){
+
+    # Computing posterior parameters
+    Omega.inv      = solve(priors$Omega)
+    Omega.post.inv = X%*%t(X) + Omega.inv
+    Omega.post     = solve(Omega.post.inv)
+    B.post         = (Y%*%t(X) + priors$B%*%Omega.inv) %*% Omega.post
+    S.post         = Y%*%t(Y) + solve(priors$S) + priors$B%*%Omega.inv%*%t(priors$B) -   B.post%*%Omega.post.inv%*%t(B.post) 
+    nu.post        = ncol(Y) + priors$nu
+
+    # Use B0.initial for first iteration, otherwise the latest draw from B0.posterior
+    if (s==1) {
+      B0.s = B0.initial
+    } else {
+      B0.s = B0.posterior[,,s-1]
+    }
+
+    # sampling one draw B0 from the posterior distribution using Gibbs
+    # rgn.function samples from a random conditional generalized normal distribution
+    B0.tmp                  = rgn(n=1, S.inv=S.post, nu=nu.post, V=FF.V, B0.initial=B0.s)
+    B0.posterior[,,s]       = B0.tmp[,,1]
+
+    # sample one draw B+ from the normal conditional posterior
+    Bp.tmp              = rnorm.ngn(B0.tmp, B=B.post,Omega=Omega.post)
+    Bp.posterior[,,s]   = Bp.tmp[,,1]
+  }
+  # END OF GIBBS
+  #Discard first S1 draws
+  B0.posterior <- B0.posterior[,,(S1+1):(S1+S2)]
+  Bp.posterior <- Bp.posterior[,,(S1+1):(S1+S2)]
+
+  #normalisation of B0.posterior and Bp.posterior
+  B0.hat             = diag(sign(diag(B0.tmp[,,1]))) %*% B0.tmp[,,1]
+
+  B0.posterior.N    <- array(NA,c(N,N,S2))
+  Bp.posterior.N    <- array(NA,c(N,(1+N*p),S2))
+
+  B0.posteror.N.tmp      =  normalize.Gibbs.output.parallel(B0.posterior,B0.hat=B0.hat)
+  for (s in 1:S2){
+    B0.posterior.N[,,s]    = B0.posteror.N.tmp[,,s]
+    Bp.posterior.N[,,s]    = B0.posterior.N[,,s]%*%solve(B0.posterior[,,s])%*%Bp.posterior[,,s]
+  }
+
+  return(list(B0.posterior.N = B0.posterior.N,
+              Bp.posterior.N = Bp.posterior.N))
+}
+```
+
+```{r baseline show}
+#| echo: false
+#| message: false
+#| warning: false
+# Run Basic function
+Basic = Gibbs.sampler.base(p=1,Y=Y,X=X,priors=priors,S1=100,S2=10000, FF.V=FF.V, B0.initial=B0.initial)
+apply(Basic$B0.posterior.N,1:2,mean)
+apply(Basic$Bp.posterior.N,1:2,mean)
+```
+
+Since a bivariate random walk was simulated, the $B_0$ matrix should be an identity matrix. Further, the first column of $B_+$ should be zero and the matrix $B_+[,2:3]$ should also be an identity matrix. This is also approximately the case, which indicates the estimation procedure is correct.
+
+## Extended Model
+
+As part of my extended model, I estimate the shrinkage parameters $\kappa_0$ and $\kappa_+$. Estimating those parameters instead of just setting them might lead to improved efficiency and reliability. By remembering how $\kappa_0$ and $\kappa_+$ affected the posterior parameters in the basic model, we can now write up the kernel for the new conjugate-prior up for the extended model:
+
+```{=tex}
+\begin{align}
+p(B_+,B_0|Y,X) &\propto L(B_+,B_0|Y,X)p(B_+,B_0|\kappa_0,\kappa_+)p(\kappa_0)p(\kappa_+)\\
+\end{align}
+```
+```{=tex}
+\begin{align}
+p(\kappa_0|\underline{s}_{\kappa_0},\underline{\nu}_{\kappa_0}) &\sim \mathcal{IG}2(\underline{s}_{\kappa_0},\underline{\nu}_{\kappa_0})\\
+p(\kappa_+|\underline{s}_{\kappa_+},\underline{\nu}_{\kappa_+}) &\sim \mathcal{IG}2(\underline{s}_{\kappa_+},\underline{\nu}_{\kappa_+})
+\end{align}
+```
+The full-conditional posterior distribution of $\kappa_0$ can be found to be:
+
+```{=tex}
+\begin{align}
+p(\kappa_0|Y,X,B_0,B_+,\kappa_+) &\propto p(B_0|\kappa_0)p(\kappa_0)\\
+&\propto \prod_{n=1}^N\kappa_0^{\frac{r_n}{2}}\exp \left\{  -\frac{1}{2}\sum_{n=1}^N b_nV_n(\kappa_0 I_{r_n})^{-1}V_n'b_n'\right\}\kappa_0^{-\frac{\underline{\nu}_{\kappa_0}+2}{2}}\exp \left\{  -\frac{1}{2} \frac{\underline{s}_{\kappa_0}}{\kappa_0}\right\}\\
+&\propto \prod_{n=1}^N\kappa_0^{\frac{r_n}{2}} \exp \left\{  -\frac{1}{2}\frac{1}{\kappa_0}\sum_{n=1}^N b_nV_n I_{r_n}V_n'b_n'\right\}\kappa_0^{-\frac{\underline{\nu}_{\kappa_0}+2}{2}}\exp \left\{  -\frac{1}{2} \frac{\underline{s}_{\kappa_0}}{\kappa_0}\right\}
+\end{align}
+```
+Since $\underline{S}=\kappa_0I_N$ and $b_n|\kappa_0 \sim \mathcal{N}(0,\kappa_0(V_nV_n')^{-1})=\mathcal{N}_{r_n}(0_{r_n},\kappa_0I_{r_n})$. By collecting the components in an appropriate way, the full-conditional posterior can be written as:
+
+```{=tex}
+\begin{align}
+p(\kappa_0|Y,X,B_0,B_+,\kappa_+) &\propto \kappa_0^{-\frac{\bar{\nu}_{\kappa_0}+2}{2}} \exp \left\{ -\frac{1}{2}\frac{\bar{s}_{\kappa_0}}{\kappa_0} \right\}\\
+\bar{s}_{\kappa_0} &= \underline{s}_{\kappa_0}+\sum_{n=1}^N b_nV_nI_{r_n}V_n'b_n'\\
+\bar{\nu}_{\kappa_0} &= \underline{\nu}_{\kappa_0}+\sum_{n=1}^N r_n
+\end{align}
+```
+The same procedure goes for the full-conditional posterior distribution of $\kappa_+$:
+
+```{=tex}
+\begin{align}
+p(\kappa_+|Y,X,B_0,B_+,\kappa_0) &\propto p(B_+|B_0,\kappa_+)p(\kappa_+)\\
+&\propto \kappa_+^{\frac{K}{2}}\exp \left\{-\frac{1}{2}\frac{1}{\kappa_+} \sum_{n=1}^N (B_n-b_nV_n\underline{B})\underline{\Omega}^{-1}(B_n-b_nV_n\underline{B})'\right\}\kappa_+^{-\frac{\underline{\nu}_{\kappa_+}+2}{2}}\exp \left\{  -\frac{1}{2} \frac{\underline{s}_{\kappa_+}}{\kappa_+}\right\}
+\end{align}
+```
+Since $B_n|b_n,\kappa_+ \sim \mathcal{N}_{N+1}(b_nV_n\underline{B},\kappa_+\Omega)$
+
+Which further can be derived to:
+
+```{=tex}
+\begin{align}
+p(\kappa_+|Y,X,B_0,B_+,\kappa_0) &\propto \kappa_+^{-\frac{\bar{\nu}_{\kappa_+}+2}{2}} \exp \left\{ -\frac{1}{2}\frac{\bar{s}_{\kappa_+}}{\kappa_+} \right\}\\
+\bar{s}_{\kappa_+} &= \underline{s}_{\kappa_+}+\sum_{n=1}^N (B_n-b_nV_n\underline{B})\underline{\Omega}^{-1}(B_n-b_nV_n\underline{B})'\\
+\bar{\nu}_{\kappa_+} &= \underline{\nu}_{\kappa_+}+NK
+\end{align}
+```
+
+Before I code this up in R the new priors need to be set. Note, that is just set to a constant now.
+
+```{r}
+### Setting new priors
+
+priors   = list(
+  B        = cbind(rep(0,N), diag(N), matrix(0, N, (p-1)*N)),
+  Omega    = diag(c(10,((1:p)^(-2))%x%rep(1,N))),
+  S        = diag(N),
+  nu       = N,
+  S.kappa0  = 1,
+  nu.kappa0 = 1,
+  S.kappa1  = 1,
+  nu.kappa1 = 1
+)
+```
+
+Which facilitates writing up the gibbs sampler for the extended model:
+
+```{r}
+Gibbs.sampler.extended <- function(p,Y,X,priors,S1,S2, FF.V, B0.initial){
+  
+  N       = nrow(Y)
+  p       = 1 # calculate from X and Y (K and N)
+  K       = 1+N*p
+  S1      = S1
+  S2      = S2
+  
+  kappa0          <- rep(NA, S1 + S2)
+  kappa1          <- rep(NA, S1 + S2)
+  B0.posterior    <- array(NA,c(N,N,(S1+S2)))
+  Bp.posterior    <- array(NA,c(N,(1+N*p),(S1+S2)))  
+  
+  kappa0[1] <- 1
+  kappa1[1] <- 1 
+  
+  for (s in 1:(S1+S2)){
+    
+    # Computing posterior parameters
+    # Only Omega, B and S depend on kappa1
+    #cat("\n kappa0: ", kappa0[s], "kappa1: ", kappa1[s])
+    
+    Omega.inv      = solve(priors$Omega)
+    Omega.post.inv = X%*%t(X) + (1/kappa1[s])*Omega.inv
+    Omega.post     = solve(Omega.post.inv)
+    B.post         = (Y%*%t(X) + priors$B%*%((1/kappa1[s])*Omega.inv)) %*% Omega.post
+    S.post         = Y%*%t(Y) + (1/kappa0[s])*solve(priors$S) + priors$B%*%((1/kappa1[s])*Omega.inv)%*%t(priors$B) - B.post%*%Omega.post.inv%*%t(B.post) 
+    nu.post        = ncol(Y) + priors$nu
+    
+    # Use B0.initial for first iteration, otherwise the latest draw from B0.posterior
+    
+    if (s==1) {
+      B0.s = B0.initial
+    } else {
+      B0.s = B0.posterior[,,s-1]
+    }
+    
+    # sampling one draw B0 from the posterior distribution using Gibbs  
+    # rgn.function samples from a random conditional generalized normal distribution
+    
+    B0.tmp                  = rgn(n=1, S.inv=S.post, nu=nu.post, V=FF.V, B0.initial=B0.s)
+    B0.posterior[,,s]       = B0.tmp[,,1]
+    
+    #cat("B0: ", B0.posterior[,,s],"\n")
+    
+    # sample one draw B+ from the normal conditional posterior
+    Bp.tmp              = rnorm.ngn(B0.tmp, B=B.post,Omega=Omega.post)
+    Bp.posterior[,,s]   = Bp.tmp[,,1]
+    
+    #compute posterior for the shrinkage parameter S.kappa and nu
+    S.kappa0.post = priors$S.kappa0 + sum(B0.posterior[,,s]^2)
+    
+    # S.kappa.post = sum(priors$S.kappa + (B0.posterior[i,,s]-priors$B[i,])%*%Omega.inv%*%t(B0.posterior[i,,s]-priors$B[i,]))
+    
+    # nu.kappa0.post  = priors$nu.kappa0 + i #change outside of loop count number rows (otherwise make as a sum of i's)
+    nu.kappa0.post  = priors$nu.kappa0 + sum(unlist(lapply(FF.V, nrow)))
+    
+    S.kappa1.post   = priors$S.kappa1
+    for (i in 1:N){
+      S.kappa1.post = S.kappa1.post + (Bp.posterior[i,,s]- B0.posterior[i,,s]%*%priors$B)%*%Omega.inv%*%t(Bp.posterior[i,,s]-B0.posterior[i,,s]%*%priors$B)
+    }
+    # S.kappa.post = sum(priors$S.kappa + (B0.posterior[i,,s]-priors$B[i,])%*%Omega.inv%*%t(B0.posterior[i,,s]-priors$B[i,]))
+    
+    nu.kappa1.post  = priors$nu.kappa1 + N*(p*N+1) 
+    
+    
+    #Draw kappa0 and kappa1 from IG2
+    if (s != S1+S2) {
+      kappa0[s+1]    = S.kappa0.post / rchisq(1, df=nu.kappa0.post) 
+      kappa1[s+1]    = S.kappa1.post / rchisq(1, df=nu.kappa1.post) 
+    }
+  }
+  
+  #Discard first S1 draws
+  
+  B0.posterior <- B0.posterior[,,(S1+1):(S1+S2)]
+  Bp.posterior <- Bp.posterior[,,(S1+1):(S1+S2)]
+  kappa0       <- kappa0[(S1+1):(S1+S2)]
+  kappa1       <- kappa1[(S1+1):(S1+S2)]
+  
+  #normalisation of B0.posterior and Bp.posterior
+  
+  B0.hat             = diag(sign(diag(B0.tmp[,,1]))) %*% B0.tmp[,,1]
+  # t(chol((nu.post-N)*S.post))# normalisation using this B0.hat should work
+  
+  B0.posterior.N    <- array(NA,c(N,N,S2))
+  Bp.posterior.N    <- array(NA,c(N,(1+N*p),S2))
+  
+    B0.posteror.N.tmp      =  normalize.Gibbs.output.parallel(B0.posterior,B0.hat=B0.hat)
+  for (s in 1:S2){
+    B0.posterior.N[,,s]    = B0.posteror.N.tmp[,,1]
+    Bp.posterior.N[,,s]    = B0.posterior.N[,,s]%*%solve(B0.posterior[,,s])%*%Bp.posterior[,,s]
+  }
+  
+  return(list(B0.posterior.N = B0.posterior.N,
+              Bp.posterior.N = Bp.posterior.N,
+              kappa0 = kappa0,
+              kappa1 = kappa1))
+} 
+```
 
 
+```{r extended show}
+#| echo: false
+#| message: false
+#| warning: false
+# Run Basic function
+# Run function
+extended = Gibbs.sampler.extended(p=1,Y=Y,X=X,priors=priors,S1=100,S2=10000, FF.V=FF.V, B0.initial=B0.initial)
 
+apply(extended$B0.posterior.N,1:2,mean)
+apply(extended$Bp.posterior.N,1:2,mean)
+```
+Again, the estimation procedure for the extended model seems to be correct as well as the output aligns with the artificial data being a bivariate random walk.
 
+I now turn to plotting the diagonal elements of $B_+[,2:3]$ in order to show whether the algorithm converges. 
 
+```{r showing converge plot}
+#| echo: false
+#| message: false
+#| warning: false
+# Plotting convergence
+par(mfrow=c(1,2))
+plot(extended$Bp.posterior.N[,2,][1,],type='l',col="#660099",ylab="",xlab="",main=expression(B[+12]), lwd = 0.1)
+plot(extended$Bp.posterior.N[,3,][2,],type='l',col="#CC66CC",ylab="",xlab="",main=expression(B[+23]), lwd = 0.1)
 
+```
 
-
-
-
-
-
-
+This is indeed the case. The plots look like white noise processes as it fluctuates around the true value 1. This means the algorithm has converged.
