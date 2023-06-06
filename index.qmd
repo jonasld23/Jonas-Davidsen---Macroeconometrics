@@ -345,8 +345,8 @@ Leading to the following posterior parameters:
 \begin{align}
 p(B_+,B_0|Y,X) &\sim \mathcal{NGN}(\bar{B},\bar{\Omega},\bar{S},\bar{\nu})\\
 \bar{\Omega}&=\left[XX'+\underline{\Omega}^{-1}\right]^{-1}\\
-\bar{B}&=\left[YX'+\underline{B\Omega}^{-1}\right]\bar{\Omega}\\
-\bar{S}&=\left[YY'+\underline{S}^{-1}+\underline{B\Omega}^{-1}\underline{B}'-\bar{B}\bar{\Omega}^{-1}\bar{B}'\right]^{-1}\\
+\bar{B}&=\left[YX'+\underline{B}\underline{\Omega}^{-1}\right]\bar{\Omega}\\
+\bar{S}&=\left[YY'+\underline{S}^{-1}+\underline{B}\underline{\Omega}^{-1}\underline{B}'-\bar{B}\bar{\Omega}^{-1}\bar{B}'\right]^{-1}\\
 \bar{\nu}&= T+\underline{\nu}
 \end{align}
 ```
