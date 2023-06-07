@@ -179,30 +179,35 @@ for (i in 1:length(adf_diff)) {
   adf_table_diff[i, "p_value"] = round(adf_diff[[i]]$p.value,3)
   adf_table_diff[i, "Lags_Used"] = round(adf_diff[[i]]$parameter,3)
 }
+```
 
+
+```{r}
+#| echo: false
 # Compute tables
 rownames(adf_table_levels) <- c("cpi", "ip", "ff", "m","hp","spx")
 colnames(adf_table_levels)<- c("Test statistic", "P-value", "Lags")
-knitr::kable(adf_table_levels, digits = 3)
+```
 
+```{r}
+#| echo: false
 rownames(adf_table_diff) <- c("\u0394cpi", "\u0394ip", "\u0394ff", "\u0394m","\u0394hp","\u0394spx")
 colnames(adf_table_diff)<- c("Test statistic", "P-value", "Lags")
-knitr::kable(adf_table_diff, digits = 3)
 ```
+
+I start out by testing for unit roots for the variables in levels as in @tbl-adf-level. By looking at the p-values it is clear that all variables are non-stationary as we cannot reject the null hypothesis of the variables being a I(1) process. However, the test statistic for $ff_t$ seems to be very sensitive to the choice of lags as we do reject the null hypothesis for other $p$. I perform the ADF test once more to check whether the variables in first difference as in @tbl-adf-firstdifference are stationary and to establish that we are dealing with I(1) processes.
 
 ```{r show adf levels table}
 #| echo: false
-#| message: false
-#| warning: false
+#| label: tbl-adf-level 
+#| tbl-cap: ADF test results - Levels 
 knitr::kable(adf_table_levels, digits = 3)
 ```
 
-I start out by testing for unit roots for the variables in levels. By looking at the p-values it is clear that all variables are non-stationary as we cannot reject the null hypothesis of the variables being a I(1) process. However, the test statistic for $ff_t$ seems to be very sensitive to the choice of lags as we do reject the null hypothesis for other $p$. I perform the ADF test once more to check whether the variables in first difference are stationary and to establish that we are dealing with I(1) processes.
-
 ```{r show adf diff table}
 #| echo: false
-#| message: false
-#| warning: false
+#| label: tbl-adf-firstdifference  
+#| tbl-cap: ADF test results - First Differences  
 knitr::kable(adf_table_diff, digits = 3)
 ```
 
@@ -345,8 +350,8 @@ Leading to the following posterior parameters:
 \begin{align}
 p(B_+,B_0|Y,X) &\sim \mathcal{NGN}(\bar{B},\bar{\Omega},\bar{S},\bar{\nu})\\
 \bar{\Omega}&=\left[XX'+\underline{\Omega}^{-1}\right]^{-1}\\
-\bar{B}&=\left[YX'+\underline{B\Omega}^{-1}\right]\bar{\Omega}\\
-\bar{S}&=\left[YY'+\underline{S}^{-1}+\underline{B\Omega}^{-1}\underline{B}'-\bar{B}\bar{\Omega}^{-1}\bar{B}'\right]^{-1}\\
+\bar{B}&=\left[YX'+\underline{B}\underline{\Omega}^{-1}\right]\bar{\Omega}\\
+\bar{S}&=\left[YY'+\underline{S}^{-1}+\underline{B}\underline{\Omega}^{-1}\underline{B}'-\bar{B}\bar{\Omega}^{-1}\bar{B}'\right]^{-1}\\
 \bar{\nu}&= T+\underline{\nu}
 \end{align}
 ```
@@ -642,16 +647,30 @@ Gibbs.sampler.base <- function(p,Y,X,S1,S2){
 ```
 
 ```{r baseline show}
-#| echo: true
-#| message: false
-#| warning: false
+#| echo: false
 # Run Basic function
-Basic.sim = Gibbs.sampler.base(p=1,Y=Y.sim,X=X.sim,S1=100,S2=1000)
-apply(Basic.sim$B0.posterior.N,1:2,mean)
-apply(Basic.sim$Bp.posterior.N,1:2,mean)
+Basic.sim = Gibbs.sampler.base(p=1,Y=Y.sim,X=X.sim,S1=100,S2=10000)
 ```
 
-Since a bivariate random walk was simulated, the $B_0$ matrix should be an identity matrix. Further, the first column of $B_+$ should be zero and the matrix $B_+[,2:3]$ should also be an identity matrix. This is also approximately the case, which indicates the estimation procedure is correct.
+Since a bivariate random walk was simulated, the $B_0$ matrix should be an identity matrix. Further, the first column of $B_+$ should be zero and the matrix $B_+[,2:3]$ should also be an identity matrix. This is also approximately the case as shown in @tbl-B0posterior and @tbl-Bpposterior, which indicates the estimation procedure is correct.
+
+```{r}
+#| echo: false
+#| label: tbl-B0posterior
+#| tbl-cap: Matrix B[0]
+df.B0 <- as.data.frame(round(apply(Basic.sim$B0.posterior.N,1:2,mean),4))
+colnames(df.B0) <- c("","")
+knitr::kable(df.B0, index=FALSE)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-Bpposterior
+#| tbl-cap: Matrix B[+]
+df.Bp <- as.data.frame(round(apply(Basic.sim$Bp.posterior.N,1:2,mean),4))
+colnames(df.Bp) <- c("","","")
+knitr::kable(df.Bp, index=FALSE)
+```
 
 ## Extended Model
 
@@ -837,17 +856,30 @@ Gibbs.sampler.extended <- function(p,Y,X,S1,S2){
 
 ```{r extended show}
 #| echo: false
-#| message: false
-#| warning: false
 # Run Basic function
 # Run function
-extended.sim = Gibbs.sampler.extended(p=1,Y=Y.sim,X=X.sim,S1=100,S2=1000)
-
-apply(extended.sim$B0.posterior.N,1:2,mean)
-apply(extended.sim$Bp.posterior.N,1:2,mean)
+extended.sim = Gibbs.sampler.extended(p=1,Y=Y.sim,X=X.sim,S1=100,S2=10000)
 ```
 
-Again, the estimation procedure for the extended model seems to be correct as well as the output aligns with the artificial data being a bivariate random walk.
+```{r}
+#| echo: false
+#| label: tbl-B0posteriorex
+#| tbl-cap: Matrix B[0]
+df.B0.e <- as.data.frame(round(apply(extended.sim$B0.posterior.N,1:2,mean),4))
+colnames(df.B0.e) <- c("","")
+knitr::kable(df.B0.e, index=TRUE)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-Bpposteriorex
+#| tbl-cap: Matrix B[+]
+df.Bp.e <- as.data.frame(round(apply(extended.sim$Bp.posterior.N,1:2,mean),4))
+colnames(df.Bp.e) <- c("","","")
+knitr::kable(df.Bp.e, index=TRUE)
+```
+
+From @tbl-B0posteriorex and @tbl-Bpposteriorex, the estimation procedure for the extended model seems to be correct as well as the output aligns with the artificial data being a bivariate random walk.
 
 I now turn to plotting the diagonal elements of $B_+[,2:3]$ in order to show whether the algorithm converges.
 
