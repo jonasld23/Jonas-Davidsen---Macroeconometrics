@@ -8,7 +8,10 @@ format:
     toc-location: left
 ---
 
+> This research project is part of the assessment for the subject Macroeconometrics (ECOM90003) at the University of Melbourne held by Dr. Tomasz Woźniak.
+
 > **Keywords.** money supply shocks, QE, asset prices, inflation, bsvar, gibbs sampler, impulse responses, R
+
 
 ```{r downloading and transforming data}
 #| echo: false
@@ -85,9 +88,13 @@ Despite extensive Quantitative Easing (QE) programs following the financial cris
 
 The objective of this research project is to investigate the effects of a money supply shock on asset prices and inflation in the US economy. So the research question is how does money supply affect asset prices and inflation and what are the implications for monetary policy and financial stability?
 
+**The structure of this research project**
+
+This research project is divided into several subsections. Throughout the report I will present three different models, which I define as the basic model, extended model and the model with $t$-distributed errors. In the basic model the hyperparameters for the prior distribution are being set exogenously, whereas they are being estimated in the extended model. For the third model, the error term is modelled to follow a $t$-distribution. I will start out by presenting the data and its properties. Afterwards I present the estimation procedure and the corresponding R-code, which I test on a bivariate random walk to validate that the code is running correctly. Next, I use the actual data and present the empirical results and interpretation.
+
 ## Data
 
-In this section I will present the data I use for this research project by plotting the time series and analyze its properties.
+In this section I present the data I use for this research project by plotting the time series and analyze its properties.
 
 ### Choice of variables
 
@@ -243,8 +250,7 @@ for (j in 1:length(colnames(y))){
 
 It is apparent that there is a clear memory pattern in the time series.
 
-## The model and hypothesis
-
+## The Econometric Model
 For investigating the effect of money supply on asset prices and inflation, a structural VAR model will be used in this research project. The structural VAR model with $p$ lags can written as
 
 ```{=tex}
@@ -259,9 +265,7 @@ where $y_t=[cpi_t$ $ip_t$ $ff_t$ $m_t$ $hp_t$ $spx_t]'$ and contains the six var
 y_t &= \mu_0 + A_1y_{t-1}+\dots+A_py_{t-p}+u_t
 \end{align}
 ```
-Where $A_i=B_0^{-1}B_i$ and $u_t=B_0^{-1}w_t$. It is assumed that $u_t|Y_{t-1}\sim\;iid(\textbf{0}_N,\Sigma)$, which allows us to denote $\Sigma = B_0^{-1} (B_0^{-1})'$. In order to reconstruct $B_0^{-1}$ and thereby identify the SVAR model, restrictions on the matrix need to imposed. As $B_0^{-1}$ consists of $K(K+1)/2$ variables, at least $K(K-1)/2$ restrictions need to be imposed. This can be done in multiple ways. In this project I will impose zero exclusion restrictions on $B_0^{-1}$ by implying a recursive system between the variables, which has to be economically justified. I will elaborate more on this later in this research project. It is important to note that if I choose a recursive system the ordering of $y_t$ is crucial.
-
-The estimation output I will interpret to measure how money supply shocks affect asset prices and inflation is impulse response functions (IRFs) and forecast error variance decomposition (FEVDs). IRFs measures the dynamic response of a variable to a given shock, while FEVDs are a measure for the contribution of different shocks to the forecast error variance of a certain variable.
+Where $A_i=B_0^{-1}B_i$ and $u_t=B_0^{-1}w_t$. It is assumed that $u_t|Y_{t-1}\sim\;iid(\textbf{0}_N,\Sigma)$, which allows us to denote $\Sigma = B_0^{-1} (B_0^{-1})'$. In order to reconstruct $B_0^{-1}$ and thereby identify the SVAR model, restrictions on the matrix need to imposed. As $B_0^{-1}$ consists of $K(K+1)/2$ variables, at least $K(K-1)/2$ restrictions need to be imposed. This can be done in multiple ways. In this project I will impose zero exclusion restrictions on $B_0^{-1}$ by implying a recursive system between the variables, which has to be economically justified. I will elaborate more on this later in this research project. It is important to note that if I choose a recursive system the ordering of $y_t$ is crucial. The estimation output I will interpret to measure how money supply shocks affect asset prices and inflation is impulse response functions (IRFs), which measure the dynamic response of a variable to a given shock.
 
 # Estimation Procedure
 
@@ -406,27 +410,24 @@ orthogonal.complement.matrix.TW = function(x){
 The **rgn()** function simulates draws for $b_n$ from a $\mathcal{NGN}$ distribution
 
 ```{r}
-rgn             = function(n,S.inv,nu,V,B0.initial){
-  # This function simulates draws for the unrestricted elements 
-  # of the conteporaneous relationships matrix of an SVAR model
-  # from a generalized-normal distribution according to algorithm 
-  # by Waggoner & Zha (2003, JEDC)
+ rgn             = function(n,S.inv,nu,V,B0.initial){
   # n     - a positive integer, the number of draws to be sampled
   # S     - an NxN positive definite matrix, a parameter of the generalized-normal distribution
   # nu    - a positive scalar, degrees of freedom parameter
   # V     - an N-element list, with fixed matrices
   # B0.initial - an NxN matrix, of initial values of the parameters
-  
   N             = nrow(B0.initial)
   no.draws      = n
   
   B0            = array(NA, c(N,N,no.draws))
   B0.aux        = B0.initial
   
-  for (i in 1:no.draws){
+for (i in 1:no.draws){
     for (n in 1:N){
       rn            = nrow(V[[n]])
-      Un            = chol(nu*solve(V[[n]]%*%S.inv%*%t(V[[n]])))
+      SS_tmp        = nu*solve(V[[n]]%*%S.inv%*%t(V[[n]]))
+      SS_tmp        = 0.5 * (SS_tmp + t(SS_tmp))
+      Un            = chol(SS_tmp)
       w             = t(orthogonal.complement.matrix.TW(t(B0.aux[-n,])))
       w1            = w %*% t(V[[n]]) %*% t(Un) / sqrt(as.numeric(w %*% t(V[[n]]) %*% t(Un) %*% Un %*% V[[n]] %*% t(w)))
       if (rn>1){
@@ -567,7 +568,7 @@ Finally, the gibbs sampler for the basic model can be presented. Note that the p
 Gibbs.sampler.base <- function(p,Y,X,S1,S2){
 
   N       = nrow(Y)
-  p       = p # calculate from X and Y (K and N)
+  p       = p 
   K       = 1+N*p
   S1      = S1
   S2      = S2
@@ -649,7 +650,7 @@ Gibbs.sampler.base <- function(p,Y,X,S1,S2){
 ```{r baseline show}
 #| echo: false
 # Run Basic function
-Basic.sim = Gibbs.sampler.base(p=1,Y=Y.sim,X=X.sim,S1=100,S2=10000)
+Basic.sim = Gibbs.sampler.base(p=1,Y=Y.sim,X=X.sim,S1=500,S2=3000)
 ```
 
 Since a bivariate random walk was simulated, the $B_0$ matrix should be an identity matrix. Further, the first column of $B_+$ should be zero and the matrix $B_+[,2:3]$ should also be an identity matrix. This is also approximately the case as shown in @tbl-B0posterior and @tbl-Bpposterior, which indicates the estimation procedure is correct.
@@ -672,7 +673,7 @@ colnames(df.Bp) <- c("","","")
 knitr::kable(df.Bp, index=FALSE)
 ```
 
-## Extended Model
+## The Extended Model
 
 As part of my extended model, I estimate the shrinkage parameters $\kappa_0$ and $\kappa_+$. Estimating those parameters instead of just setting them might lead to improved efficiency and reliability. By remembering how $\kappa_0$ and $\kappa_+$ affected the posterior parameters in the basic model, we can now write up the kernel for the new conjugate-prior up for the extended model:
 
@@ -773,7 +774,6 @@ Gibbs.sampler.extended <- function(p,Y,X,S1,S2){
     
     # Computing posterior parameters
     # Only Omega, B and S depend on kappa1
-    #cat("\n kappa0: ", kappa0[s], "kappa1: ", kappa1[s])
     
     Omega.inv      = solve(priors$Omega)
     Omega.post.inv = X%*%t(X) + (1/kappa1[s])*Omega.inv
@@ -796,8 +796,6 @@ Gibbs.sampler.extended <- function(p,Y,X,S1,S2){
     B0.tmp                  = rgn(n=1, S.inv=S.post, nu=nu.post, V=FF.V, B0.initial=B0.s)
     B0.posterior[,,s]       = B0.tmp[,,1]
     
-    #cat("B0: ", B0.posterior[,,s],"\n")
-    
     # sample one draw B+ from the normal conditional posterior
     Bp.tmp              = rnorm.ngn(B0.tmp, B=B.post,Omega=Omega.post)
     Bp.posterior[,,s]   = Bp.tmp[,,1]
@@ -805,16 +803,12 @@ Gibbs.sampler.extended <- function(p,Y,X,S1,S2){
     #compute posterior for the shrinkage parameter S.kappa and nu
     S.kappa0.post = priors$S.kappa0 + sum(B0.posterior[,,s]^2)
     
-    # S.kappa.post = sum(priors$S.kappa + (B0.posterior[i,,s]-priors$B[i,])%*%Omega.inv%*%t(B0.posterior[i,,s]-priors$B[i,]))
-    
-    # nu.kappa0.post  = priors$nu.kappa0 + i #change outside of loop count number rows (otherwise make as a sum of i's)
     nu.kappa0.post  = priors$nu.kappa0 + sum(unlist(lapply(FF.V, nrow)))
     
     S.kappa1.post   = priors$S.kappa1
     for (i in 1:N){
-      S.kappa1.post = S.kappa1.post + (Bp.posterior[i,,s]- B0.posterior[i,,s]%*%priors$B)%*%Omega.inv%*%t(Bp.posterior[i,,s]-B0.posterior[i,,s]%*%priors$B)
+    S.kappa1.post = S.kappa1.post + (Bp.posterior[i,,s]-       B0.posterior[i,,s]%*%priors$B)%*%Omega.inv%*%t(Bp.posterior[i,,s]-B0.posterior[i,,s]%*%priors$B)
     }
-    # S.kappa.post = sum(priors$S.kappa + (B0.posterior[i,,s]-priors$B[i,])%*%Omega.inv%*%t(B0.posterior[i,,s]-priors$B[i,]))
     
     nu.kappa1.post  = priors$nu.kappa1 + N*(p*N+1) 
     
@@ -843,7 +837,7 @@ Gibbs.sampler.extended <- function(p,Y,X,S1,S2){
   
     B0.posteror.N.tmp      =  normalize.Gibbs.output.parallel(B0.posterior,B0.hat=B0.hat)
   for (s in 1:S2){
-    B0.posterior.N[,,s]    = B0.posteror.N.tmp[,,1]
+    B0.posterior.N[,,s]    = B0.posteror.N.tmp[,,s]
     Bp.posterior.N[,,s]    = B0.posterior.N[,,s]%*%solve(B0.posterior[,,s])%*%Bp.posterior[,,s]
   }
   
@@ -858,7 +852,7 @@ Gibbs.sampler.extended <- function(p,Y,X,S1,S2){
 #| echo: false
 # Run Basic function
 # Run function
-extended.sim = Gibbs.sampler.extended(p=1,Y=Y.sim,X=X.sim,S1=100,S2=10000)
+extended.sim = Gibbs.sampler.extended(p=1,Y=Y.sim,X=X.sim,S1=500,S2=3000)
 ```
 
 ```{r}
@@ -893,14 +887,320 @@ I now turn to plotting the diagonal elements of $B_+[,2:3]$ in order to show whe
 par(mfrow=c(1,2))
 plot(extended.sim$Bp.posterior.N[,2,][1,],type='l',col="#660099",ylab="",xlab="",main=expression(B[+12]), lwd = 0.1)
 plot(extended.sim$Bp.posterior.N[,3,][2,],type='l',col="#CC66CC",ylab="",xlab="",main=expression(B[+23]), lwd = 0.1)
-
 ```
 
 This is indeed the case. The plots look like white noise processes as it fluctuates around the true value 1. This means the algorithm has converged.
 
+## Model with $t$-distributed errors
+
+Since macroeconomic variables tend to be characterized by fat tails, I now proceed by extending the model even further by modelling the error terms to follow a $t$-distribution. Recall from the previous section that $u_{n.t}\sim\mathcal{N}(0,1)$, where $u_{n.t}$ represents the structural shock for the $n$th row. This is now being replaced by the following assumption 
+
+```{=tex}
+\begin{align}
+u_{n.t}|\lambda\sim\mathcal{N}(0,\lambda_n)
+\end{align}
+```
+Where $\lambda_n \sim \mathcal{IG}2(\underline{s}_{\lambda},\underline{\nu}_{\lambda})$. The distribution of the error term then becomes the following: 
+
+```{=tex}
+\begin{align}
+p(u_{n.t}) &= \int p(u_{n.t}|\lambda_n)p(\lambda_n)d\lambda_n \\
+& = \mathcal{t}(0,\underline{s},\underline{\nu})
+\end{align}
+```
+This obviously also alters the likelihood function in the model, which can be rewritten to:
+```{=tex}
+\begin{align}
+L(B_+,B_0 | Y, X) \propto |\det(B_0)|^T|\det(\lambda I_t)|^N \exp \left\{-\frac{1}{2} \sum_{n=1}^N (b_nV_nY-B_nX)(\lambda I_t)^{-1}(b_nV_nY-B_nX)'  \right\}
+\end{align}
+```
+
+We can now find the full conditional posterior for $\lambda$:
+
+```{=tex}
+\begin{align}
+p(\lambda|Y,X,B_0,B_+) &\propto p(B_+|B_0,\lambda)p(\lambda)\\
+&\propto |\det(\Omega)|^T|\det(\lambda I_t)|^N \exp \left\{-\frac{1}{2} \sum_{n=1}^N (B_n-b_nV_n\underline{B})(\lambda I_T)^{-1}\underline{\Omega}^{-1}(B_n-b_nV_n\underline{B})'\right\}\lambda^{-\frac{\underline{\nu}_{\lambda}+2}{2}}\exp \left\{  -\frac{1}{2} \frac{\underline{s}_{\lambda}}{\lambda}\right\}
+\end{align}
+```
+Which can be shown to yield the following posterior parameters:
+```{=tex}
+\begin{align}
+p(\lambda|Y,X,B_0,B_+) &\propto \lambda^{-\frac{\bar{\nu}_{\lambda}+2}{2}} \exp \left\{ -\frac{1}{2}\frac{\bar{s}_{\lambda}}{\lambda} \right\}\\
+\bar{s}_{\lambda} &= \underline{s}_{\lambda}+\sum_{n=1}^N (B_n-b_nV_n\underline{B})\underline{\Omega}^{-1}(B_n-b_nV_n\underline{B})'\\
+\bar{\nu}_{\lambda} &= \underline{\nu}_{\lambda}+NT
+\end{align}
+```
+This facilitates writing up the gibbs sampler for this model below. Note that $\underline{s}_{\lambda}=1$ and $\underline{\nu}_{\lambda}=4$. By setting the degrees of freedom rather low this allows for fat tails.
+
+```{r}
+Gibbs.sampler.tdis <- function(p,Y,X,S1,S2){
+  #
+  N       = nrow(Y)
+  p       = p 
+  K       = 1+N*p
+  S1      = S1 # S1
+  S2      = S2 #S2
+  
+  ### Setting new priors
+  priors   = list(
+  B        = cbind(rep(0,N), diag(N), matrix(0, N, (p-1)*N)),
+  Omega    = diag(c(10,((1:p)^(-2))%x%rep(1,N))),
+  S        = diag(N),
+  nu       = N,
+  S.kappa0  = 1,
+  nu.kappa0 = 1,
+  S.kappa1  = 1,
+  nu.kappa1 = 1, 
+  s.lambda = 1, 
+  nu.lambda = 4
+  )
+  
+  lambda.draw = priors$s.lambda/rchisq(1, priors$nu.lambda)
+
+  
+  #Exclusions (can be changed to different exclusions then cholesky) 
+FF.V           = vector("list",N)
+for (n in 1:N){
+  FF.V[[n]]   = cbind(diag(n),matrix(0,n,N-n))
+}
+
+# The B0.initial is used as an initial matrix used in the Gibbs sampler
+B0.initial = matrix(0,N,N)
+for (n in 1:N){
+  unrestricted    = apply(FF.V[[n]],2,sum)==1
+  B0.initial[n,unrestricted] = rnorm(sum(unrestricted))
+}
+  
+  kappa0          <- rep(NA, S1 + S2)
+  kappa1          <- rep(NA, S1 + S2)
+  B0.posterior    <- array(NA,c(N,N,(S1+S2)))
+  Bp.posterior    <- array(NA,c(N,(1+N*p),(S1+S2)))
+  lambda          <- rep(NA, S1 + S2)
+  
+  #  lambda[1] <- priors$lambda.draw
+  kappa0[1] <- 1
+  kappa1[1] <- 1
+  
+  for (s in 1:(S1+S2)){
+    # Computing posterior parameters
+    # Only Omega, B and S depend on kappa1
+    
+    if (s==1) {
+      B0.s = B0.initial
+      lambda = lambda.draw 
+    } else {
+      B0.s = B0.posterior[,,s-1]
+      lambda[s]=lambda[s]
+    }  
+    
+    Omega.inv      = solve(priors$Omega)
+    Omega.post.inv = (1/lambda[s])*X%*%t(X) + (1/kappa1[s])*Omega.inv
+    Omega.post     = solve(Omega.post.inv)
+    B.post         = ((1/lambda[s])*Y%*%t(X) + priors$B%*%((1/kappa1[s])*Omega.inv)) %*% Omega.post
+    S.post         = (1/lambda[s])*Y%*%t(Y) + (1/kappa0[s])*solve(priors$S) + priors$B%*%((1/kappa1[s])*Omega.inv)%*%t(priors$B) - B.post%*%Omega.post.inv%*%t(B.post)
+    nu.post        = ncol(Y) + priors$nu
+    
+    # sampling one draw B0 from the posterior distribution using Gibbs  
+    # rgn.function samples from a random conditional generalized normal distribution
+    
+    B0.tmp                  = rgn(n=1, S.inv=S.post, nu=nu.post, V=FF.V, B0.initial=B0.s)
+    B0.posterior[,,s]       = B0.tmp[,,1]
+    
+    # sample one draw B+ from the normal conditional posterior
+    Bp.tmp              = rnorm.ngn(B0.tmp, B=B.post,Omega=Omega.post)
+    Bp.posterior[,,s]   = Bp.tmp[,,1]
+    
+    #compute posterior for the shrinkage parameter S.kappa and nu
+    S.kappa0.post = priors$S.kappa0 + sum(B0.posterior[,,s]^2)
+    
+    nu.kappa0.post  = priors$nu.kappa0 + sum(unlist(lapply(FF.V, nrow)))
+    
+    S.kappa1.post   = priors$S.kappa1
+    for (i in 1:N){
+      S.kappa1.post = S.kappa1.post + (Bp.posterior[i,,s]- B0.posterior[i,,s]%*%priors$B)%*%Omega.inv%*%t(Bp.posterior[i,,s]-B0.posterior[i,,s]%*%priors$B)
+    }
+    
+    nu.kappa1.post  = priors$nu.kappa1 + N*(p*N+1) 
+    
+    #### LAMBDA
+    
+    S.lambda.post   = priors$s.lambda
+    for (i in 1:N){
+      S.lambda.post = S.lambda.post + (Bp.posterior[i,,s]- B0.posterior[i,,s]%*%priors$B)%*%Omega.inv%*%t(Bp.posterior[i,,s]-B0.posterior[i,,s]%*%priors$B)
+    }
+    
+    nu.lambda.post  = priors$nu.lambda + N*ncol(Y) 
+    
+
+    #Draw kappa0, kappa1 and lambda from IG2
+    if (s != S1+S2) {
+      kappa0[s+1]    = S.kappa0.post / rchisq(1, df=nu.kappa0.post) 
+      kappa1[s+1]    = S.kappa1.post / rchisq(1, df=nu.kappa1.post)
+      lambda[s+1]    = S.lambda.post / rchisq(1, df=nu.lambda.post)
+    }
+  }
+  
+  #Discard first S1 draws
+  
+  B0.posterior <- B0.posterior[,,(S1+1):(S1+S2)]
+  Bp.posterior <- Bp.posterior[,,(S1+1):(S1+S2)]
+  kappa0       <- kappa0[(S1+1):(S1+S2)]
+  kappa1       <- kappa1[(S1+1):(S1+S2)]
+  lambda       <- lambda[(S1+1):(S1+S2)]
+  
+  #normalisation of B0.posterior and Bp.posterior
+  
+  B0.hat             = diag(sign(diag(B0.tmp[,,1]))) %*% B0.tmp[,,1]
+  # t(chol((nu.post-N)*S.post))# normalisation using this B0.hat should work
+  
+  B0.posterior.N    <- array(NA,c(N,N,S2))
+  Bp.posterior.N    <- array(NA,c(N,(1+N*p),S2))
+  
+  B0.posteror.N.tmp      =  normalize.Gibbs.output.parallel(B0.posterior,B0.hat=B0.hat)
+  for (s in 1:S2){
+    B0.posterior.N[,,s]    = B0.posteror.N.tmp[,,s]
+    B0.posterior.N[,,s]    = B0.posterior.N[,,s]/sqrt(lambda[s]) 
+    Bp.posterior.N[,,s]    = B0.posterior.N[,,s]%*%solve(B0.posterior[,,s])%*%Bp.posterior[,,s]
+  }
+  
+  return(list(B0.posterior.N = B0.posterior.N,
+              Bp.posterior.N = Bp.posterior.N,
+              Omega.post = Omega.post, 
+              kappa0 = kappa0,
+              kappa1 = kappa1,
+              lambda = lambda))
+}
+```
+
+```{r tdis show}
+#| echo: false
+# Run Basic function
+# Run function
+extended.tdis = Gibbs.sampler.tdis(p=1,Y=Y.sim,X=X.sim,S1=500,S2=3000)
+```
+By running the model with the artificial data and looking at the $B_0$ and $B_+$ matrix in @tbl-B0posterior-tdis and @tbl-Bpposterior-tdis, it is clear that the output aligns with a bi-variate random walk.
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-tdis
+#| tbl-cap: Matrix B[0]
+df.B0.e <- as.data.frame(round(apply(extended.tdis$B0.posterior.N,1:2,mean),4))
+colnames(df.B0.e) <- c("","")
+knitr::kable(df.B0.e, index=TRUE)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-Bpposterior-tdis
+#| tbl-cap: Matrix B[+]
+df.B0.e <- as.data.frame(round(apply(extended.tdis$Bp.posterior.N,1:2,mean),4))
+colnames(df.B0.e) <- c("","")
+knitr::kable(df.B0.e, index=TRUE)
+```
+Further, by computing a trace plot for $\lambda$ we see that the algorithm indeed also converges.
+```{r showing converge plot}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: fig-convergence-plot-tdis
+#| fig-cap: "Convergence Plot of lambda"
+# Plotting convergence
+plot(extended.tdis$lambda,type='l',col="#660099",ylab="",xlab="",main=expression(lambda), lwd = 0.1)
+```
+
 # Empirical Investigation
 
-In this section I will present the empirical results and provide the economic interpretation behind them. I will do so by computing the impulse responses for each variable from a shock to the money supply. Computations in R will be presented as well as plots of the impulse responses.
+```{r run all models with data}
+#| echo: false
+#| message: false
+#| warning: false
+
+basic    = Gibbs.sampler.base(p=12,Y=Y,X=X,S1=500,S2=10000)
+extended = Gibbs.sampler.extended(p=12,Y=Y,X=X,S1=500,S2=10000)
+tdis     = Gibbs.sampler.tdis(p=12,Y=Y,X=X,S1=500,S2=3000)
+```
+In this section I will present the empirical results for each model and provide the economic interpretation behind them. I will do so by computing the impulse responses for each variable from a shock to the money supply. Computations in R will be presented as well as plots of the impulse responses.
+
+### Empirical results 
+
+Before presenting the impulse response functions, the means and standard deviations of the posterior draws of the $B_0$ matrix for all three models are being reported below. Starting out with the basic model:
+
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-data
+#| tbl-cap: Means of B0 for the basic model
+df.B0 <- as.data.frame(round(apply(basic$B0.posterior.N,1:2,mean),4))
+colnames(df.B0) <- c("","","","","","")
+knitr::kable(df.B0, index=FALSE)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-data-sd
+#| tbl-cap: Standard deviations of B0 for the basic model
+df.B0 <- as.data.frame(round(apply(basic$B0.posterior.N,1:2,sd),4))
+colnames(df.B0) <- c("","","","","","")
+knitr::kable(df.B0, index=FALSE)
+```
+Now for the extended model, where the estimated hyperparameters, $\kappa_0$ and $\kappa_+$, are plotted in a histogram:
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-data-ext
+#| tbl-cap: Means of B0 for the extended model
+df.B0 <- as.data.frame(round(apply(extended$B0.posterior.N,1:2,mean),4))
+colnames(df.B0) <- c("","","","","","")
+knitr::kable(df.B0, index=FALSE)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-data-sd-ext
+#| tbl-cap: Standard deviations of B0 for the extended model
+df.B0 <- as.data.frame(round(apply(extended$B0.posterior.N,1:2,sd),4))
+colnames(df.B0) <- c("","","","","","")
+knitr::kable(df.B0, index=FALSE)
+```
+
+
+```{r}
+#| echo: false 
+#| message: false
+#| warning: false
+#| label: fig-histograms-kappa
+#| fig-cap: "Histograms of hyperparameters"
+  par(mfrow=c(1,2),mar=c(2,2,2,2))
+  hist(extended$kappa0, breaks="Freedman-Diaconis", col='tomato3', main = expression(paste("Contemporaneous Hyperparameter", kappa[0])), border=F, xlim=c(0,max(extended$kappa0)))
+  abline(v = mean(extended$kappa0), col='purple4', lwd = 2)
+  hist(extended$kappa1, breaks="Freedman-Diaconis", col='royalblue', main = expression(paste("Autoregressive Hyperparameter", kappa[1])), border=F, xlim=c(0,max(extended$kappa1)))
+  abline(v = mean(extended$kappa1), col='purple4', lwd = 3)
+```
+And now for the model with $t$-distributed error terms, where a trace plot of the estimated $\lambda$ is also plotted.
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-data-tdis
+#| tbl-cap: Means of B0 for t-distributed model
+df.B0 <- as.data.frame(round(apply(tdis$B0.posterior.N,1:2,mean),4))
+colnames(df.B0) <- c("","","","","","")
+knitr::kable(df.B0, index=FALSE)
+```
+
+```{r}
+#| echo: false
+#| label: tbl-B0posterior-data-sd-tdis
+#| tbl-cap: Standard deviations of B0 for t-distributed model
+df.B0 <- as.data.frame(round(apply(tdis$B0.posterior.N,1:2,sd),4))
+colnames(df.B0) <- c("","","","","","")
+knitr::kable(df.B0, index=FALSE)
+```
+```{r}
+#| echo: false 
+#| message: false
+#| warning: false
+#| label: fig-trace-lambda
+#| fig-cap: "Convergence plot of lambda"
+plot(tdis$lambda,type='l',col="#660099",ylab="",xlab="",main=expression(lambda), lwd = 0.1)
+```
+Unlike for the artificial data, it is clear that $\lambda$ does not converge for the actual data. This seems rather strange and might indicate that the implementation of $t$-distributed error terms is a failed experiment. I will therefore not proceed with this model and refrain from plotting the IRFs for this model below.
 
 ### Impulse Responses
 
@@ -957,7 +1257,6 @@ IRF <- function(B0.posterior,Bp.posterior,p,h){
 
 IRF.posterior     = array(NA,c(N,N,h+1,S2))
 IRF.inf.posterior = array(NA,c(N,N,S2))
-FEVD.posterior    = array(NA,c(N,N,h+1,S2))
 J                 = cbind(diag(N),matrix(0,N,N*(p-1)))
 for (s in 1:S2){
   A.bold          = rbind(A.posterior[,2:(1+N*p),s],cbind(diag(N*(p-1)),matrix(0,N*(p-1),N)))
@@ -970,15 +1269,8 @@ for (s in 1:S2){
       IRF.posterior[,,i,s]        = J %*% A.bold.power %*% t(J) %*% B.posterior[,,s]
       A.bold.power                = A.bold.power %*% A.bold
     }
-    # for (n in 1:N){
-    #   for (nn in 1:N){
-    #     FEVD.posterior[n,nn,i,s]  = sum(IRF.posterior[n,nn,1:i,s]^2)
-    #   }
-    # }
-    # FEVD.posterior[,,i,s]         = diag(1/apply(FEVD.posterior[,,i,s],1,sum))%*%FEVD.posterior[,,i,s]
   }
 }
-FEVD.posterior    = 100*FEVD.posterior
 
 IRF.posterior.mps = IRF.posterior[,4,,]
 IRFs.k1           = apply(IRF.posterior.mps,1:2,median)
@@ -1017,29 +1309,18 @@ Bu_t=\begin{bmatrix}
     b_{41} & b_{42} & b_{43} & b_{44} & 0 & 0 \\
     b_{51} & b_{52} & b_{53} & b_{54} & b_{55} & 0 \\
     b_{61} & b_{62} & b_{63} & b_{64} & b_{65} & b_{66} \\
-\end{bmatrix}=\begin{bmatrix}
+\end{bmatrix}\begin{bmatrix}
     u_{cpi_t}\\u_{ip_t}\\u_{ff_t}\\u_{m_t}\\u_{hp_t}\\u_{spx_t}
 \end{bmatrix}
 \end{align*}
 
-These restrictions and the implied recursive system have to be economically justified. The first first equation in the system I interpret as a horizontal AS curve, while the second equation I interpret as a downward sloping AD curve. The third equation represents the monetary policy reaction function of the FED that reacts on both prices and output. Having money supply as the fourth variable is justifiable as the FED doesn't react on the money supply. Note that this variable is also the shock of interest in this research project. Last but not least, house prices and stock prices are in the end of the contemporaneous causal chain.
+These restrictions and the implied recursive system have to be economically justified. The first equation in the system I interpret as a horizontal AS curve, while the second equation I interpret as a downward sloping AD curve. The third equation represents the monetary policy reaction function of the FED that reacts on both prices and output. Having money supply as the fourth variable is justifiable as the FED doesn't react on the money supply. Note that this variable is also the shock of interest in this research project. Last but not least, house prices and stock prices are in the end of the contemporaneous causal chain.
 
 ### Impulse responses plots
 
-The IRFs are plotted for the basic and extended model below. Generally, the results are in line with economic theory and therefore have standard interpretations. A positive shock to the money supply can be seen as an expansionary and inflationary shock and should therefore be accompanied with an increase in CPI, real activity and asset prices. This is also indeed the case as all those variables react positively to the shock both contemporaneously and in subsequent periods. However, it is rather puzzling why the Fed Funds rate rises as well. Economic theory would suggest that interest rates would fall following a money supply shock, as an increased money stock makes liquidity relatively cheaper and therefore one would except the Fed Funds rate to fall.
+The IRFs are plotted for the basic model and the extended model. Generally, the results are in line with economic theory and therefore have standard interpretations. In other words, the results are mostly as expected. A positive shock to the money supply can be seen as an expansionary and inflationary shock and should therefore be accompanied with an increase in CPI, real activity and asset prices. This is also indeed the case as all those variables react positively to the shock both contemporaneously and in subsequent periods. However, it is rather puzzling why the Fed Funds rate rises as well. Economic theory would suggest that interest rates would fall following a money supply shock, as an increased money stock makes liquidity relatively cheaper and therefore one would except the Fed Funds rate to fall.
 
-There are no big differences between the plots when comparing between the basic model and the extended model. The most notable differences are that the confidence bands for the IRF of CPI are wider for the basic model than for the extended model, whereas it is the opposite case for the Fed Funds rate.
-
-```{r run both models with data}
-#| echo: false
-#| message: false
-#| warning: false
-
-basic    = Gibbs.sampler.base(p=12,Y=Y,X=X,S1=100,S2=10000)
-extended = Gibbs.sampler.extended(p=12,Y=Y,X=X,S1=100,S2=10000)
-```
-
-
+There are no big differences between the plots across the three models. The most notable differences are that the confidence bands for the IRF of CPI are wider for the basic model than for the extended model, whereas it is the opposite case for the Fed Funds rate.
 
 ```{r show IRFs basic}
 #| echo: false
@@ -1059,5 +1340,18 @@ IRF(B0.posterior=basic$B0.posterior.N,Bp.posterior=basic$Bp.posterior.N,p=12,h=2
 #| fig-cap: "IRFs for extended model" 
 IRF(B0.posterior=extended$B0.posterior.N,Bp.posterior=extended$Bp.posterior.N,p=12,h=24)
 ```
+
+
+# Concluding Remarks
+
+In this research project I have investigated the effect of a money supply shock on asset prices and inflation. As expected, an increase in the money supply affects both asset prices and inflation positively. It seems like there is a larger effect on asset prices compared to on inflation, but it is tough to say. Throughout the project I presented three different models, namely the basic model where the hyperparameters were set exogenously, the extended model where the hyperparameters were being estimated and the model with $t$-distributed error terms. The model with $t$-distributed error terms didn't seem to converge with the data and therefore I did not compute the IRFs for this model. When comparing the basic and extended model it is also tough to say whether the extended model enhanced the empirical results. One could argue that the confidence bands of the IRFs seemed to be a tad narrower for the extended model compared with the basic model.
+
+
+
+
+
+
+
+
 
 # References
